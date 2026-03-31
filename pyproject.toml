@@ -1,0 +1,45 @@
+[project]
+name = "customer-support-agent"
+version = "0.1.0"
+description = "AI copilot for support agents with FastAPI, LangChain, Mem0, and ChromaDB"
+readme = "Plan.md"
+requires-python = ">=3.11,<3.12"
+
+dependencies = [
+  # --- API & Server ---
+  "fastapi>=0.110,<0.116",
+  "uvicorn[standard]>=0.30,<0.36",
+  "websockets>=14,<15",
+
+  # --- Config & Validation ---
+  "pydantic>=2.6,<3",
+  "pydantic-settings>=2.2,<3",
+  "python-dotenv",
+
+  # --- LLM / Agent Stack ---
+  "langchain>=0.2,<0.4",
+  "langchain-core>=0.2,<0.4",
+  "langchain-groq>=0.1,<0.2",
+  "langchain-text-splitters>=0.2,<0.4",
+
+  # --- Memory / Vector DB ---
+  "mem0ai>=0.1,<0.2",
+  "chromadb>=0.5,<0.6",
+
+  # --- UI / Client ---
+  "streamlit>=1.32,<2",
+  "requests",
+  "email-validator",
+  
+  # --- GenAI SDK ---
+  "google-genai>=0.3,<0.5",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+  "playwright>=1.58.0",
+  "pytest",
+]
