@@ -27,24 +27,10 @@ class KnowledgeBaseService:
             chunk_overlap=settings.rag_chunk_overlap,
         )
 
-    # def _build_embedding_function(self) -> Any:
-    #     if self._settings.embedding_provider == 'gemini':
-    #         # Chroma's GoogleGenaiEmbeddingFunction reads GOOGLE_API_KEY from env.
-    #         os.environ["Google_API_KEY"]=self._settings.google_api_key
-    #         try:
-    #             return embedding_functions.GoogleGenaiEmbeddingFunction(
-    #                 model_name=self._settings.effective_google_embedding_model,
-    #             )
-    #         except Exception as exc:
-    #             raise RuntimeError(
-    #                 "Gemini embedding initialization failed. Install `google-genai` and verify GOOGLE_API_KEY."
-    #             ) from exc
-            
-    #     return embedding_functions.DefaultEmbeddingFunction()
 
     def _build_embedding_function(self) -> Any:
         if self._settings.google_api_key:
-            print("GOOGLE_API_KEY (from settings):", self._settings.google_api_key[:6], "...")
+           
             os.environ["GOOGLE_API_KEY"] = self._settings.google_api_key
 
             try:
