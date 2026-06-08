@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str=""
     google_api_key: str=""
+    google_embedding_model: str="models/embedding-001"
 
     workspace_dir: Path=Path(__file__).resolve().parents[2]
     data_dir: Path=Path("data")
@@ -58,6 +59,9 @@ class Settings(BaseSettings):
     def knowledge_base_path(self)->Path:
         return self.resolve(self.knowledge_base_dir)
     
+    @property
+    def effective_google_embedding_model(self)->str:
+        return self.google_embedding_model
 
 @lru_cache
 def get_settings()->Settings:

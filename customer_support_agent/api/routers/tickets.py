@@ -16,7 +16,7 @@ from customer_support_agent.api.dependencies import (
 
 from customer_support_agent.repositories.sqlite.customer import customersRepository
 from customer_support_agent.repositories.sqlite.drafts import DraftsRepository
-from customer_support_agent.repositories.sqlite.tickets import TicketRepository
+from customer_support_agent.repositories.sqlite.tickets import TicketsRepository
 from customer_support_agent.schemas.api import GenerateDraftResponse,TicketCreateRequest,TicketResponse
 from customer_support_agent.services.copilot_service import SupportCopilot
 from customer_support_agent.services.draft_service import DraftService
@@ -26,7 +26,7 @@ router=APIRouter()
 
 def _generate_and_store_draft_background(
         ticket_id:int,
-        tickets_repo:TicketRepository,
+        tickets_repo:TicketsRepository,
         customers_repo:customersRepository,
         drafts_repo:DraftsRepository,
         draft_service:DraftService,
@@ -46,7 +46,7 @@ def create_ticket_route(
     payload:TicketCreateRequest,
     background_tasks:BackgroundTasks,
     customers_repo:customersRepository=Depends(get_customers_repository),
-    tickets_repo:TicketRepository=Depends(get_tickets_repository),
+    tickets_repo:TicketsRepository=Depends(get_tickets_repository),
     drafts_repo:DraftsRepository=Depends(get_drafts_repository),
     drafts_service:DraftService=Depends(get_draft_service)
 )->dict[str,Any]:
@@ -57,7 +57,8 @@ def create_ticket_route(
     )
     ticket=tickets_repo.create(
         customer_id=customer["id"],
-        subject=payload.description,
+        subject=payload.subject,
+        description=payload.description,
         priority=payload.priority,
     )
 
@@ -82,7 +83,7 @@ def create_ticket_route(
 
 @router.get("/api/tickets",response_model=list[TicketResponse])
 def list_tickets_route(
-    tickets_repo:TicketRepository=Depends(get_tickets_repository),
+    tickets_repo:TicketsRepository=Depends(get_tickets_repository),
     draft_service:DraftService=Depends(get_draft_service),
 
 )->list[dict[str,Any]]:
@@ -91,20 +92,20 @@ def list_tickets_route(
 @router.get("/api/tickets/{ticket_id}",response_model=TicketResponse)
 def get_ticket_route(
     ticket_id:int,
-    tickets_repo:TicketRepository=Depends(get_tickets_repository),
+    tickets_repo:TicketsRepository=Depends(get_tickets_repository),
     draft_service:DraftService=Depends(get_draft_service)
 )->dict[str,Any]:
     ticket=tickets_repo.get_by_id(ticket_id)
     if not ticket:
-        raise HTTPException(status_code=404,details="Ticket not found")
+        raise HTTPException(status_code=404,detail="Ticket not found")
     return draft_service.serialize_ticket(ticket)
 
 @router.post("/api/tickets/{ticket_id}/generate-draft",response_model=GenerateDraftResponse)
 def generate_draft_route(
     ticket_id:int,
-    tickets_repo:TicketRepository=Depends(get_tickets_repository),
+    tickets_repo:TicketsRepository=Depends(get_tickets_repository),
     customers_repo:customersRepository=Depends(get_customers_repository),
-    drafts_repo:DraftsRepository=Depends(get_draft_service),
+    drafts_repo:DraftsRepository=Depends(get_drafts_repository),
     draft_service:DraftService=Depends(get_draft_service),
     copilot:SupportCopilot=Depends(get_copilot_or_503)
 )->dict[str,Any]:

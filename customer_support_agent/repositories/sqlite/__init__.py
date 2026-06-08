@@ -5,10 +5,10 @@ from typing import Any
 from customer_support_agent.repositories.sqlite.base import init_db
 from customer_support_agent.repositories.sqlite.customer import customersRepository
 from customer_support_agent.repositories.sqlite.drafts import DraftsRepository
-from customer_support_agent.repositories.sqlite.tickets import TicketRepository
+from customer_support_agent.repositories.sqlite.tickets import TicketsRepository
 
 _customer=customersRepository()
-_tickets=TicketRepository()
+_tickets=TicketsRepository()
 _drafts=DraftsRepository()
 
 def create_or_get_customer(email:str,name:str |None=None,company:str|None=None)->dict[str,Any]:
@@ -76,7 +76,7 @@ def get_ticket_and_customer_by_draft(draft_id:int)->dict[str,Any]|None:
 
 __all__=[
     "customersRepository",
-    "TicketRepository",
+    "TicketsRepository",
     "DraftsRepository",
     "init_db",
     "create_or_get_customer",

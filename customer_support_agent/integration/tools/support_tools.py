@@ -5,14 +5,14 @@ from typing import Any
 from langchain_core.tools import tool
 
 from customer_support_agent.repositories.sqlite.customer import customersRepository
-from customer_support_agent.repositories.sqlite.tickets import TicketRepository
+from customer_support_agent.repositories.sqlite.tickets import TicketsRepository
 
 def _stable_bucket(email:str,size:int)->int:
     digest=hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()
     return int(digest,16) % size
 
 def _json(payload:dict[str,Any])->str:
-    return json.sumps(payload)
+    return json.dumps(payload)
 
 def _load_band(open_count:int)->str:
     if open_count<=1:
@@ -51,7 +51,7 @@ def lookup_customer_plan(customer_email:str)->str:
 
 def lookup_open_ticket_load(customer_email:str)->str:
     customers_repo=customersRepository()
-    tickets_repo=TicketRepository()
+    tickets_repo=TicketsRepository()
 
     customer=customers_repo.get_by_email(customer_email)
     if not customer:

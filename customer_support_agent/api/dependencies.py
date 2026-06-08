@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException
 from customer_support_agent.core.settings import Settings,get_settings
 from customer_support_agent.repositories.sqlite.customer import customersRepository 
 from customer_support_agent.repositories.sqlite.drafts import DraftsRepository
-from customer_support_agent.repositories.sqlite.tickets import TicketRepository
+from customer_support_agent.repositories.sqlite.tickets import TicketsRepository
 from customer_support_agent.services.copilot_service import SupportCopilot
 from customer_support_agent.services.draft_service import DraftService
 from customer_support_agent.services.knowledge_service import KnowledgeService
@@ -27,10 +27,10 @@ def get_settings_dep()->Settings:
     return get_settings()
 
 def get_customers_repository()->customersRepository:
-    return customersRepository
+    return customersRepository()
 
-def get_tickets_repository()->TicketRepository:
-    return TicketRepository()
+def get_tickets_repository()->TicketsRepository:
+    return TicketsRepository()
 
 def get_drafts_repository()->DraftsRepository:
     return DraftsRepository()

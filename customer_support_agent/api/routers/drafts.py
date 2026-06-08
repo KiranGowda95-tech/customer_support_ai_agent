@@ -10,7 +10,7 @@ from customer_support_agent.api.dependencies import (
 )
 
 from customer_support_agent.repositories.sqlite.drafts import DraftsRepository
-from customer_support_agent.repositories.sqlite.tickets import TicketRepository
+from customer_support_agent.repositories.sqlite.tickets import TicketsRepository
 from customer_support_agent.schemas.api import DraftResponse,DraftUpdateRequest
 from customer_support_agent.services.draft_service import DraftService
 
@@ -34,12 +34,12 @@ def update_draft_route(
     draft_id:int,
     payload:DraftUpdateRequest,
     drafts_repo:DraftsRepository=Depends(get_drafts_repository),
-    tickets_repo:TicketRepository=Depends(get_tickets_repository),
+    tickets_repo:TicketsRepository=Depends(get_tickets_repository),
     draft_service:DraftService=Depends(get_draft_service)
 )->dict:
     existing=drafts_repo.get_by_id(draft_id)
     if not existing:
-        raise HTTPException(status_code=404,details='Draft not found')
+        raise HTTPException(status_code=404,detail='Draft not found')
     
     updated=drafts_repo.update(draft_id=draft_id,content=payload.content,status=payload.status)
     if not updated:

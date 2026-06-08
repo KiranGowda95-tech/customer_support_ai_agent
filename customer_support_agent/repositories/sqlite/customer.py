@@ -6,7 +6,6 @@ from customer_support_agent.repositories.sqlite.base import connect,row_to_dict
 
 
 class customersRepository:
-
     def create_or_get(self,
                       email:str,
                       name:str | None=None,
@@ -30,7 +29,7 @@ class customersRepository:
                 return row_to_dict(refreshed) or {}
             
             conn.execute(
-                "INSERT INTO customers(email,name,company) VALUE(?,?,?)"
+                "INSERT INTO customers(email,name,company) VALUES (?,?,?)",
                 (email,name,company),
             )
 
@@ -43,6 +42,6 @@ class customersRepository:
 
     def get_by_email(self,email:str)->dict[str,Any] | None:
         with connect() as conn:
-            row=conn.execute("SELECT * FROM customers WHERE id=?",(email,)).fetchone()
+            row=conn.execute("SELECT * FROM customers WHERE email=?",(email,)).fetchone()
             return row_to_dict(row)
         

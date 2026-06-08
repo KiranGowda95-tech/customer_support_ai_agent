@@ -24,7 +24,7 @@ class TicketResponse(BaseModel):
     subject: str
     description: str
     status: str
-    prirority:str
+    priority:Literal['low','medium','high']
     created_at:str
     updated_at:str
 
@@ -58,7 +58,7 @@ class StructuredDraftContext(BaseModel):
     signals:DraftSignals | dict[str,Any] | None=None
     highlights: DraftHighlights | dict[str,Any] | None=None
     memory_hits:list[dict[str,Any]]=Field(default_factory=list)
-    knoledge_hits: list[dict[str,Any]]=Field(default_factory=list)
+    knowledge_hits: list[dict[str,Any]]=Field(default_factory=list)
     tool_calls: list[DraftToolCall | dict[str,Any]] =Field(default_factory=list)
     errors : list[str]=Field(default_factory=list)
 
