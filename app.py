@@ -191,10 +191,10 @@ def render_context(context: dict[str, Any] | None) -> None:
 
 
 with st.sidebar:
-    st.subheader("API Settings1")
+    st.subheader("API Settings")
     st.code(API_BASE_URL)
 
-    if st.button("Ingest Knowledge Base123", use_container_width=True):
+    if st.button("Ingest Knowledge Base", use_container_width=True):
         try:
             result = ingest_knowledge(clear_existing=True)
             files=result.get("files_indexed",0)

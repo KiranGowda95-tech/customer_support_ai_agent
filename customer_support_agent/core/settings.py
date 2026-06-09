@@ -70,13 +70,13 @@ class Settings(BaseSettings):
             return "gemini-embedding-001"
         if model.startswith("models/"):
             model=model[len("models/"):]
-        deprecated_aliases={
-            "text-embedding-004",
-            "embedding-001",
-            "embedding-gecko-001",
-            "gemini-embedding-exp",
-            "gemini-embedding-exp-03-07"
-        }
+            deprecated_aliases={
+                "text-embedding-004",
+                "embedding-001",
+                "embedding-gecko-001",
+                "gemini-embedding-exp",
+                "gemini-embedding-exp-03-07"
+            }
         if model in deprecated_aliases:
             return "gemini-embedding-001"
         return model

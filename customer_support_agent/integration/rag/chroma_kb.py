@@ -33,11 +33,20 @@ class KnowledgeBaseService:
            
             os.environ["GOOGLE_API_KEY"] = self._settings.google_api_key
 
+            # 1. Clean and safely format the model name string
+            model_name = self._settings.effective_google_embedding_model
+            if model_name and not model_name.startswith("models/"):
+                model_name = f"models/{model_name}"
+
             try:
                 ef = embedding_functions.GoogleGenaiEmbeddingFunction(
-                model_name=self._settings.effective_google_embedding_model,
+                    model_name=model_name,
                 )
-                print("Gemini embedding function initialized successfully")
+                
+                # 2. Dry-run a test string to force the API to validate the model name immediately
+                ef(["dry run validation"])
+                
+                print(f"Gemini embedding function initialized successfully with: {model_name}")
                 return ef
 
             except Exception as exc:
