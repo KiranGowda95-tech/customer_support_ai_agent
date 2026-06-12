@@ -48,8 +48,9 @@ def lookup_customer_plan(customer_email:str)->str:
         }
     )
 
-
+@tool
 def lookup_open_ticket_load(customer_email:str)->str:
+    """Return open ticket count and load band for a customer email."""
     customers_repo=customersRepository()
     tickets_repo=TicketsRepository()
 

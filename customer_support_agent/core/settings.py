@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     api_port: int=8000
 
     dashboard_api_url: str="http://localhost:8000"
+    guardrails_enabled: bool=True
+    trace_enabled: bool=True
+    trace_dir:Path=Path("data/traces")
 
     def resolve(self,path:Path)->Path:
         """Resolve relative paths against the project root"""
@@ -59,6 +62,10 @@ class Settings(BaseSettings):
     @property
     def knowledge_base_path(self)->Path:
         return self.resolve(self.knowledge_base_dir)
+
+    @property
+    def trace_dir_path(self)->Path:
+        return self.resolve(self.trace_dir)
     
     @property
     def effective_google_embedding_model(self)->str:
@@ -67,19 +74,19 @@ class Settings(BaseSettings):
         """
         model=(self.google_embedding_model or "").strip()
         if not model:
-            return "gemini-embedding-001"
+            return "models/text-embedding-004"
         if model.startswith("models/"):
             model=model[len("models/"):]
-            deprecated_aliases={
+        deprecated_aliases={
                 "text-embedding-004",
                 "embedding-001",
                 "embedding-gecko-001",
                 "gemini-embedding-exp",
                 "gemini-embedding-exp-03-07"
-            }
+            }    
         if model in deprecated_aliases:
-            return "gemini-embedding-001"
-        return model
+            return "models/text-embedding-004"
+        return f"models/{model}"
 
 @lru_cache
 def get_settings()->Settings:
@@ -94,6 +101,7 @@ def ensure_directories(settings:Settings | None=None)->None:
         config.chroma_rag_path,
         config.chroma_mem0_path,
         config.knowledge_base_path,
+        config.trace_dir_path,
     ):
         path.mkdir(parents=True,exist_ok=True)
 
