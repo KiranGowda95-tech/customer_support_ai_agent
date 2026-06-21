@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     guardrails_enabled: bool=True
     trace_enabled: bool=True
     trace_dir:Path=Path("data/traces")
+    tracer_enabled:bool | None=None
+    tracer_dir:Path | None = None
 
     def resolve(self,path:Path)->Path:
         """Resolve relative paths against the project root"""
@@ -66,6 +68,10 @@ class Settings(BaseSettings):
     @property
     def trace_dir_path(self)->Path:
         return self.resolve(self.trace_dir)
+    
+    @property
+    def tracer_dir_path(self)->Path:
+        return self.resolve(self.tracer_dir or self.trace_dir)
     
     @property
     def effective_google_embedding_model(self)->str:

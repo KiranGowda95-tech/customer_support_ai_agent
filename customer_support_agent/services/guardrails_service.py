@@ -289,63 +289,63 @@ class GuardrailsService:
         self._toxicity_validator:Validator | None=None
         self._forbidden_validator:Validator |None=None
         self._scop_validator:Validator | None=None
-        self._setup_validators()
+        # self._setup_validators()
 
-    def _setup_validatord(self)->None:
-        self._pii_validators.append(AccountNumberValidator(on_fail="fix"))
+    # def _setup_validatord(self)->None:
+    #     self._pii_validators.append(AccountNumberValidator(on_fail="fix"))
 
-        if _HubDetectPII is not None:
-            try:
-                self._pii_validators.append(
-                    _HubDetectPII(
-                        pii_entities=["EMAIL_ADDESSS","PHONE_NUMBER","CREDIT_CARD"],
-                        on_fail="fix",
-                    )
-                )
-            except Exception:
-                pass
-        if len(self._pii_validators)==1:
-            self._pii_validators.append(RegexPiiValidator(on_fail="fix"))
+    #     if _HubDetectPII is not None:
+    #         try:
+    #             self._pii_validators.append(
+    #                 _HubDetectPII(
+    #                     pii_entities=["EMAIL_ADDESSS","PHONE_NUMBER","CREDIT_CARD"],
+    #                     on_fail="fix",
+    #                 )
+    #             )
+    #         except Exception:
+    #             pass
+    #     if len(self._pii_validators)==1:
+    #         self._pii_validators.append(RegexPiiValidator(on_fail="fix"))
 
-        if _HubToxicLanguage is not None:
-            try:
-                self._toxicity_validator=_HubToxicLanguage(
-                    threshold=0.5,validation_method="sentence",on_fail="noop"
-                )
-            except Exception:
-                self._toxic_validator=None
-        if self._toxic_validator is None:
-            self._toxicity_validator=ToxicLanguageRegexValidator(on_fail="noop")
+    #     if _HubToxicLanguage is not None:
+    #         try:
+    #             self._toxicity_validator=_HubToxicLanguage(
+    #                 threshold=0.5,validation_method="sentence",on_fail="noop"
+    #             )
+    #         except Exception:
+    #             self._toxic_validator=None
+    #     if self._toxic_validator is None:
+    #         self._toxicity_validator=ToxicLanguageRegexValidator(on_fail="noop")
         
-        self._forbidden_validator=ForbiddenPhrasesValidator(on_fail="noop")
+    #     self._forbidden_validator=ForbiddenPhrasesValidator(on_fail="noop")
 
-        if _HubRestrictToTopic is not None:
-            try:
-                self._scope_validator = _HubRestrictToTopic(
-                    valid_topics=[
-                        "banking",
-                        "account servicing",
-                        "atm",
-                        "card",
-                        "kyc",
-                        "fees and charges",
-                        "support ticket",
-                    ],
-                    invalid_topics=[
-                        "poetry",
-                        "creative writing",
-                        "weather",
-                        "recipes",
-                        "travel",
-                        "song",
-                        "code",
-                    ],
-                    disable_classifier=False,
-                    disable_llm=True,
-                    on_fail="noop",
-                )
-            except Exception:
-                self._scope_validator = None
+    #     if _HubRestrictToTopic is not None:
+    #         try:
+    #             self._scope_validator = _HubRestrictToTopic(
+    #                 valid_topics=[
+    #                     "banking",
+    #                     "account servicing",
+    #                     "atm",
+    #                     "card",
+    #                     "kyc",
+    #                     "fees and charges",
+    #                     "support ticket",
+    #                 ],
+    #                 invalid_topics=[
+    #                     "poetry",
+    #                     "creative writing",
+    #                     "weather",
+    #                     "recipes",
+    #                     "travel",
+    #                     "song",
+    #                     "code",
+    #                 ],
+    #                 disable_classifier=False,
+    #                 disable_llm=True,
+    #                 on_fail="noop",
+    #             )
+    #         except Exception:
+    #             self._scope_validator = None
 
 
 

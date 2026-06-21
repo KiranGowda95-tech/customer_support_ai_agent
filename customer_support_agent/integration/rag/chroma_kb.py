@@ -6,46 +6,18 @@ from pathlib import Path
 from typing import Any
 
 import chromadb
-from chromadb.api.types import EmbeddingFunction, Documents, Embeddings
-from google import genai  # Modern, official Google SDK
 from chromadb.utils import embedding_functions
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from customer_support_agent.core.settings import Settings
 
 
-# ==========================================
-# 1. THE CUSTOM EMBEDDING WRAPPER CLASS
-# ==========================================
-class ModernGoogleEmbeddingFunction(EmbeddingFunction[Documents]):
-    def __init__(self, api_key: str, model_name: str = "text-embedding-004"):
-        self.model_name = model_name
-        # Initialize the modern official client directly
-        self.client = genai.Client(api_key=api_key)
-
-    def __call__(self, input: Documents) -> Embeddings:
-        try:
-            response = self.client.models.embed_content(
-                model=self.model_name,
-                contents=input,
-            )
-            # Extract and return the float vectors array natively expected by ChromaDB
-            return [embedding.values for embedding in response.embeddings]
-        except Exception as e:
-            raise RuntimeError(f"Modern Google API embedding payload failed: {str(e)}")
-
-
-# ==========================================
-# 2. THE MAIN KNOWLEDGE BASE SERVICE CLASS
-# ==========================================
 class KnowledgeBaseService:
-    def __init__(self, settings: Settings):
-        # Restore the original properties initialization
+    def __init__(self, settings:Settings):
         self._settings = settings
         self._client = chromadb.PersistentClient(path=str(settings.chroma_rag_path))
         self._collection_name = "support_kb_gemini" if settings.google_api_key else "support_kb"
         self._embedding_function = self._build_embedding_function()
-        
         self._collection = self._client.get_or_create_collection(
             name=self._collection_name,
             embedding_function=self._embedding_function,
@@ -58,53 +30,39 @@ class KnowledgeBaseService:
     def _build_embedding_function(self) -> Any:
         if self._settings.google_api_key:
             print("Entering into the _build_embedding_function")
-        
+
+            # Clean and sanitize the key string
             api_key = str(self._settings.google_api_key).strip()
-            
-            # 🟢 FORCE FIXED: Override legacy models to the absolute modern AI Studio standard
-            model_name = "models/text-embedding-004"
+            os.environ["GEMINI_API_KEY"] = api_key  # ✅ Correct env variable
+
+            model_name = self._settings.effective_google_embedding_model
+            if model_name and not model_name.startswith("models/"):
+                model_name = f"models/{model_name}"
 
             try:
-                print(f"Initializing official ModernGoogleEmbeddingFunction with: {model_name}")
-                
-                # Instantiating custom class
-                ef = ModernGoogleEmbeddingFunction(
-                    api_key=api_key,
-                    model_name=model_name
+                print(f"Attempting to launch Chroma GenAI Wrapper with model: {model_name}")
+                ef = embedding_functions.GoogleGeminiEmbeddingFunction(  # ✅ Correct function name
+                    model_name=model_name,
+                    task_type="RETRIEVAL_DOCUMENT",  # ✅ Required parameter added
                 )
-                
-                # Perform a dry-run check
-                ef(["network credential validation check"])
-                
-                print(f"🎉 CRITICAL SUCCESS: Modern Google SDK connected perfectly to {model_name}!")
                 return ef
-            
             except Exception as exc:
-                print("🔥 MODERN GEMINI INITIALIZATION FAILED:", repr(exc))
+                print(f"RAW INITIALIZATION FAILURE: {repr(exc)}")
                 raise RuntimeError(
-                    f"Could not connect using the modern SDK. Verify your network or API key value string. Details: {repr(exc)}"
-                )
+                    f"Gemini embedding initialization failed. Raw Error: {repr(exc)}"
+                ) from exc
 
         print("No Google API key supplied. Falling back to local ONNX embeddings.")
         return embedding_functions.DefaultEmbeddingFunction()
 
     def ingest_directory(self, directory: Path, clear_existing: bool = False) -> dict[str, int]:
         if clear_existing:
-            print(f"🔄 Attempting to clear existing collection: {self._collection_name}")
-            try:
-                self._client.delete_collection(name=self._collection_name)
-                print(f"🗑️ Successfully deleted old collection: {self._collection_name}")
-            except Exception as e:
-                print(f"ℹ️ Note: Collection did not exist yet, skipping deletion. Reason: {repr(e)}")
-                
+            self._client.delete_collection(name=self._collection_name)
             self._collection = self._client.get_or_create_collection(
                 name=self._collection_name,
                 embedding_function=self._embedding_function,
             )
         
-        if not directory.exists():
-            raise FileNotFoundError(f"❌ Local ingestion directory not found: {directory.absolute()}")
-
         source_files = sorted(
             [
                 *directory.glob("*.md"),

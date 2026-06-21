@@ -18,7 +18,7 @@ class DraftsRepository:
                 """
                 INSERT INTO drafts (ticket_id,content,context_used,status)
                 VALUES(?,?,?,?)
-                """
+                """,
                 (ticket_id,content,context_used,status),
             )
 

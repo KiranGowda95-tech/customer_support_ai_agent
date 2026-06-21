@@ -1,67 +1,85 @@
 from __future__ import annotations
-
 from typing import Any
-
 from customer_support_agent.core.settings import Settings
 
 try:
     from mem0 import Memory
 except ImportError:
-    Memory=None
+    Memory = None
+
+
+def clean_key(key: str | None) -> str | None:
+    if not key:
+        return None
+    return key.strip().strip(",").strip()
 
 
 class CustomerMemoryStore:
 
-    def __init__(self,settings:Settings,llm=Any):
+    def __init__(self, settings: Settings, llm=Any):
         if Memory is None:
-            raise RuntimeError("mem0ai is not installed.Install dependencies with 'uv sync'.")
-        _=llm
+            raise RuntimeError(
+                "mem0ai is not installed. Install dependencies with 'uv sync'."
+            )
+        _ = llm
 
-        config:dict[str,Any]={
-            "llm":{
-                "provider":"groq",
-                "config":{
-                    "model":settings.groq_model,
-                    "api_key":settings.groq_api_key,
-                    "temperature":settings.llm_temperature,
-                }
+        groq_key = clean_key(settings.groq_api_key)
+        google_key = clean_key(settings.google_api_key)
+        openai_key = clean_key(settings.openai_api_key)
+
+        # -----------------------------
+        # Base config (Groq = LLM only)
+        # -----------------------------
+        config: dict[str, Any] = {
+            "llm": {
+                "provider": "groq",
+                "config": {
+                    "model": settings.groq_model,
+                    "api_key": groq_key,
+                    "temperature": settings.llm_temperature,
+                },
             },
-            "vector_store":{
-                "provider":"chroma",
-                "config":{
-                    "path":str(settings.chroma_mem0_path)
-                }
-            }
+            "vector_store": {
+                "provider": "chroma",
+                "config": {
+                    "path": str(settings.chroma_mem0_path),
+                },
+            },
         }
 
-        if settings.google_api_key:
-            config["embedder"]={
-                "provider":"gemini",
-                "config":{
-                    "api_key":settings.google_api_key,
-                    "model":settings.effective_google_embedding_model,
-                }
+        # -----------------------------
+        # Embedder priority:
+        # Google → OpenAI → HuggingFace
+        # -----------------------------
+        if google_key:
+            config["embedder"] = {
+                "provider": "gemini",
+                "config": {
+                    "api_key": google_key,
+                    "model": settings.effective_google_embedding_model,
+                },
             }
 
-        elif settings.openai_api_key:
-            config["embedder"]={
-                "provider":"openai",
-                "config":{
-                    "api_key":settings.openai_api_key,
-                    "model":"text-embedding-3-small"
-                }
+        elif openai_key:
+            config["embedder"] = {
+                "provider": "openai",
+                "config": {
+                    "api_key": openai_key,
+                    "model": "text-embedding-3-small",
+                },
             }
+
         else:
-            config["embedder"]={
-                "provider":"huggingface",
-                "config":{
-                    "model":"all-MiniLM-L6-v2"
-                }
+            # Guaranteed safe fallback
+            config["embedder"] = {
+                "provider": "huggingface",
+                "config": {
+                    "model": "all-MiniLM-L6-v2",
+                },
             }
 
-        self._memory=Memory.from_config(config)
+        self._memory = Memory.from_config(config)
 
-        
     def search(self,query:str,user_id:str,limit:int=5)->list[dict[str,Any]]:
         try:
             raw=self._memory.search(query,user_id=user_id,limit=limit)

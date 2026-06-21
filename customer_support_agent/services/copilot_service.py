@@ -94,7 +94,7 @@ class SupportCopilot:
                 "context_used":context_used,
             }
 
-        safe_ticket=self._build_guarded_ticket(ticket)
+        safe_ticket=self._build_guarded_tickets(ticket)
         trace_customer=self._build_trace_customer(customer)
         query=input_result.sanitized_text
 
@@ -107,7 +107,7 @@ class SupportCopilot:
             limit=self._settings.mem0_top_k,
         )
         kb_hits = self.rag.search(query=query, top_k=self._settings.rag_top_k)
-        requires_tool_checks=self._requires_tool_checks(ticket=safe_ticket)
+        requires_tool_checks=self._require_tool_checks(ticket=safe_ticket)
         prefetched_tool_calls=(
             self._prefetch_tool_calls(ticket=safe_ticket,customer=customer)
             if requires_tool_checks
@@ -122,7 +122,7 @@ class SupportCopilot:
         draft_text=""
         agent_error:str | None=None
         tool_calls:list[dict[str,Any]]=list(prefetched_tool_calls)
-        used_direct_llm=False
+        used_direct_llm = False
         
 
         if tool_calls:
@@ -181,11 +181,13 @@ class SupportCopilot:
                 user_prompt=user_prompt,
                 trace_user_prompt=trace_user_prompt,
                 ticket=safe_ticket,
-                kb_hits=kd_hits,
+                kb_hits=kb_hits,
                 tool_calls=tool_calls,
-                guardrail_outcomes=guardrail_outcomes
+                guardrail_outcomes=guardrail_outcomes,
             )
-            used_direct_llm=bool(draft_text)
+
+            used_direct_llm = bool(draft_text)
+            
 
 
         used_fallback = False

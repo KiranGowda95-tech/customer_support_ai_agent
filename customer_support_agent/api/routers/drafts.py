@@ -25,6 +25,7 @@ def get_draft_route(
 )->dict:
     draft=drafts_repo.get_latest_for_ticket(ticket_id)
     if not draft:
+        print("ENtering to draft not found service")
         raise HTTPException(status_code=404,detail='Draft not found')
     return draft_service.serialize_draft(draft)
 

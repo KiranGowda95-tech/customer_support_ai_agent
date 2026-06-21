@@ -8,33 +8,29 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
   # --- API & Server ---
   "fastapi>=0.110,<0.116",
-  "uvicorn[standard]>=0.30,<0.36",
-  "websockets>=14,<15",
-
   # --- Config & Validation ---
   "pydantic>=2.6,<3",
   "pydantic-settings>=2.2,<3",
   "python-dotenv",
-
   # --- LLM / Agent Stack ---
   "langchain>=0.2,<0.4",
   "langchain-core>=0.2,<0.4",
   "langchain-groq>=0.1,<0.2",
   "langchain-text-splitters>=0.2,<0.4",
-
   # --- Memory / Vector DB ---
   "mem0ai>=0.1,<0.2",
-  "chromadb>=0.5,<0.6",
-
   # --- UI / Client ---
   "streamlit>=1.32,<2",
   "requests",
   "email-validator",
-  
   # --- GenAI SDK ---
-  "google-genai>=0.3,<0.5",
-  "guardrails-ai>=0.5",
+  "guardrails-ai>=0.5.0,<0.5.4",
   "spacy>=3.7",
+  "google-genai>=1.0.0",
+  "chromadb>=0.6.0",
+  "typer>=0.12.0",
+  "websockets>=14.0",
+  "uvicorn>=0.32.0",
 ]
 
 [tool.uv]
