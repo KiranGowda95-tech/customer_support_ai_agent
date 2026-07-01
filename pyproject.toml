@@ -6,35 +6,38 @@ readme = "Plan.md"
 requires-python = ">=3.11,<3.12"
 
 dependencies = [
-  # --- API & Server ---
-  "fastapi>=0.110,<0.116",
-  # --- Config & Validation ---
-  "pydantic>=2.6,<3",
-  "pydantic-settings>=2.2,<3",
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic-settings",
   "python-dotenv",
-  # --- LLM / Agent Stack ---
-  "langchain>=0.2,<0.4",
-  "langchain-core>=0.2,<0.4",
-  "langchain-groq>=0.1,<0.2",
-  "langchain-text-splitters>=0.2,<0.4",
-  # --- Memory / Vector DB ---
-  "mem0ai>=0.1,<0.2",
-  # --- UI / Client ---
-  "streamlit>=1.32,<2",
+  "langchain",
+  "langchain-core",
+  "langchain-groq",
+  "langchain-text-splitters",
+  "mem0ai",
+  "chromadb",
+  "streamlit",
   "requests",
   "email-validator",
-  # --- GenAI SDK ---
-  "guardrails-ai>=0.5.0,<0.5.4",
+  "google-genai",
+
   "spacy>=3.7",
-  "google-genai>=1.0.0",
-  "chromadb>=0.6.0",
-  "typer>=0.12.0",
-  "websockets>=14.0",
-  "uvicorn>=0.32.0",
+  # Optional local embedding stack (disabled to keep EC2 image size low):
+  # "sentence-transformers",
+  # "torch",
 ]
 
 [tool.uv]
 package = false
+
+# Optional torch CPU index (enable only if uncommenting "torch" above):
+# [tool.uv.sources]
+# torch = { index = "pytorch-cpu" }
+#
+# [[tool.uv.index]]
+# name = "pytorch-cpu"
+# url = "https://download.pytorch.org/whl/cpu"
+# explicit = true
 
 [dependency-groups]
 dev = [

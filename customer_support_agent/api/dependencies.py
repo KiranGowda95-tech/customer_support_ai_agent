@@ -18,7 +18,7 @@ from customer_support_agent.services.knowledge_service import KnowledgeService
 def get_copilot()->SupportCopilot:
     return SupportCopilot(
         settings=get_settings(),
-        guardrails=get_guardrails_services(),
+        guardrails=get_guardrails_service(),
         tracer=get_tracer()
         )
 

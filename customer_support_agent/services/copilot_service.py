@@ -107,7 +107,9 @@ class SupportCopilot:
             limit=self._settings.mem0_top_k,
         )
         kb_hits = self.rag.search(query=query, top_k=self._settings.rag_top_k)
+
         requires_tool_checks=self._require_tool_checks(ticket=safe_ticket)
+
         prefetched_tool_calls=(
             self._prefetch_tool_calls(ticket=safe_ticket,customer=customer)
             if requires_tool_checks
@@ -135,6 +137,7 @@ class SupportCopilot:
                 tool_calls=tool_calls,
                 guardrail_outcomes=guardrail_outcomes
             )
+            used_direct_llm=bool(draft_text)
         elif requires_tool_checks:
             with self._tracer.start_span(
                 "agent_invoke",
@@ -150,10 +153,10 @@ class SupportCopilot:
             try:
                 agent_result=self._agent.invoke(
                     {
-                        "messages":{
+                        "messages":[
                             SystemMessage(content=system_prompt),
                             HumanMessage(content=user_prompt)
-                        }
+                        ]
                     },
                     config={
                         "configurable":{
@@ -191,7 +194,7 @@ class SupportCopilot:
 
 
         used_fallback = False
-        if requires_tool_checks and  not draft_text:
+        if requires_tool_checks and not draft_text:
             draft_text = self._fallback_generate_text(
                 ticket=safe_ticket,
                 customer=customer,
@@ -202,9 +205,11 @@ class SupportCopilot:
                 guardrail_outcomes=guardrail_outcomes
             )
             used_fallback = True
+            used_direct_llm=False
         if not draft_text:
             draft_text = self._deterministic_fallback(ticket=ticket, customer=customer, tool_calls=tool_calls)
             used_fallback = True
+            used_direct_llm=False
             guardrail_outcomes["output"]={
                 "passed":True,
                 "sanitized_text":draft_text,
@@ -234,11 +239,17 @@ class SupportCopilot:
             context_used.setdefault("errors",[]).append(
                 "output guardrails replaced the model response with a deterministic escalation draft."
             )  
-        context_used["agent_runtime"] = (
-            "langchain_create_agent"
-            if requires_tool_checks
-            else "direct_llm_context_synthesis"
-        )
+        if used_fallback:
+            context_used["agent_runtime"]="fallback"
+        elif used_direct_llm:
+            context_used['agent_runtime']="direct_llm"
+        elif requires_tool_checks:
+            context_used["agent_runtime"]="langchain_create_agent"
+        else:
+            context_used["agent_runtime"]="unknown"
+
+        context_used["used_direct_llm"]=used_direct_llm
+        context_used["used_fallback"]=used_fallback
 
         return {
             "draft": draft_text,
@@ -303,41 +314,72 @@ class SupportCopilot:
         )
 
 
-    def _search_memory_scopes(
-        self,
-        query: str,
-        customer_email: str,
-        customer_company: str | None,
-        limit: int,
-    ) -> list[dict[str, Any]]:
+    def _search_memory_scopes(self,query:str,customer_email:str,customer_company:str | None,limit:int)->list[dict[str,Any]]:
+
         per_scope_limit = max(1, limit)
-        scope_user_ids = self._memory_scope_ids(
-            customer_email=customer_email,
-            customer_company=customer_company,
-        )
+        try:
+
+            scope_user_ids = self._memory_scope_ids(
+                customer_email=customer_email,
+                customer_company=customer_company,
+            )
+        except Exception as exc:
+            self._memory_error=f"Memory scope resolution failed:{exc}"
+            return []
+
         raw_hits: list[dict[str, Any]] = []
+
         for scope_user_id in scope_user_ids:
-            hits = self.memory.search(query=query, user_id=scope_user_id, limit=per_scope_limit)
-            raw_hits.extend(self._annotate_memory_scope(hits=hits, scope_user_id=scope_user_id))
-        return self._dedupe_memory_hits(raw_hits, limit=per_scope_limit * len(scope_user_ids))
+            try:
+                hits = self.memory.search(
+                    query=query,
+                    user_id=scope_user_id,
+                    limit=per_scope_limit,
+                )
+                raw_hits.extend(
+                    self._annotate_memory_scope(
+                        hits=hits,
+                        scope_user_id=scope_user_id,
+                    )
+                )
+            except Exception as exc:
+                # prevents vector DB crash
+                self._memory_error = f"Memory search failed for {scope_user_id}: {exc}"
+
+        return self._dedupe_memory_hits(
+            raw_hits,
+            limit=per_scope_limit * len(scope_user_ids),
+        )
     
     def _memory_scope_ids(self, customer_email: str, customer_company: str | None) -> list[str]:
+
         scope_user_ids = [customer_email.strip().lower()]
+
         company_scope = self._company_scope_user_id(customer_company)
+
         if company_scope:
             scope_user_ids.append(company_scope)
+        else:
+            self._memory_error="Company scope missing or invalid"
+
         return self._unique_ordered(scope_user_ids)
 
     @staticmethod
     def _company_scope_user_id(customer_company: str | None) -> str | None:
-        if not customer_company:
+
+        if customer_company is None:
             return None
+
         lowered = customer_company.strip().lower()
+
         if not lowered:
             return None
+
         normalized = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+
         if not normalized:
             return None
+
         return f"company::{normalized}"
     
     @staticmethod
@@ -423,10 +465,10 @@ class SupportCopilot:
         )
     
     def _require_tool_checks(self,ticket:dict[str,Any])->bool:
-        return bool(self._tool_names_for_tickets(ticket))
+        return bool(self.TicketsRepository_tool_names_for_ticket(ticket))
 
     @staticmethod
-    def _tool_names_for_tickets(ticket:dict[str,Any])->list[str]:
+    def TicketsRepository_tool_names_for_ticket(ticket:dict[str,Any])->list[str]:
         text=f"{ticket.get('subject','')}\n{ticket.get('description','')}".lower()
         tool_names:list[str]=[]
         plan_markers = (
@@ -454,7 +496,7 @@ class SupportCopilot:
     def _prefetch_tool_calls(self,ticket:dict[str,Any],customer:dict[str,Any])->list[dict[str,Any]]:
         tool_calls:list[dict[str,Any]]=[]
         arguments={"customer_email":customer["email"]}
-        for tool_name in self._tool_names_for_tickets(ticket):
+        for tool_name in self.TicketsRepository_tool_names_for_ticket(ticket):
             tool_calls.append(self._invoke_tool_for_trace(tool_name=tool_name,arguments=arguments))
             return tool_calls
 
