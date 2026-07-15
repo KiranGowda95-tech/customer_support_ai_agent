@@ -4,8 +4,8 @@ import json
 import re
 from typing import Any
 
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain.prompts import ChatPromptTemplate
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_groq import ChatGroq
 # from langgraph.checkpoint.memory import InMemorySaver

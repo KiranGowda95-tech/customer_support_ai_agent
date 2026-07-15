@@ -20,11 +20,13 @@ dependencies = [
   "requests",
   "email-validator",
   "google-genai",
-
   "spacy>=3.7",
   # Optional local embedding stack (disabled to keep EC2 image size low):
   # "sentence-transformers",
   # "torch",
+  "ragas>=0.4.3",
+  "deepeval>=4.0.7",
+  "langchain-community>=0.4.2",
 ]
 
 [tool.uv]
