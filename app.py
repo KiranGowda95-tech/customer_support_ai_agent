@@ -235,10 +235,10 @@ st.subheader("Create Ticket")
 with st.form("create_ticket_form"):
     col1, col2 = st.columns(2)
     with col1:
-        customer_email = st.text_input("Customer Email", placeholder="alex@acme.io")
-        customer_name = st.text_input("Customer Name", placeholder="Alex Rivera")
+        customer_email = st.text_input("Customer Email", placeholder="kiran@gmail.com")
+        customer_name = st.text_input("Customer Name", placeholder="Kiran Kumar")
     with col2:
-        customer_company = st.text_input("Company", placeholder="Acme Labs")
+        customer_company = st.text_input("Company", placeholder="ABC Private Ltd")
         priority = st.selectbox("Priority", ["low", "medium", "high", "urgent"], index=1)
 
     subject = st.text_input("Subject")
