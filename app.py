@@ -239,7 +239,7 @@ with st.form("create_ticket_form"):
         customer_name = st.text_input("Customer Name", placeholder="Kiran Kumar")
     with col2:
         customer_company = st.text_input("Company", placeholder="ABC Private Ltd")
-        priority = st.selectbox("Priority", ["low", "medium", "high", "urgent"], index=1)
+        priority = st.selectbox("Priority", ["low", "medium", "high"], index=1)
 
     subject = st.text_input("Subject")
     description = st.text_area("Description", height=120)

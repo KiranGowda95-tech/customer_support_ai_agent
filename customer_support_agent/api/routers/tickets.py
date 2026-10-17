@@ -24,7 +24,7 @@ from customer_support_agent.services.draft_service import DraftService
 logger=logging.getLogger(__name__)
 router=APIRouter()
 
-def _generate_and_store_draft_background(
+def generate_and_store_background(
         ticket_id:int,
         tickets_repo:TicketsRepository,
         customers_repo:customersRepository,
@@ -32,7 +32,7 @@ def _generate_and_store_draft_background(
         draft_service:DraftService,
 
 )->dict[str,Any] | None:
-    return draft_service._generate_and_store_draft_background(
+    return draft_service.generate_and_store_background(
         ticket_id=ticket_id,
         tickets_repo=tickets_repo,
         customers_repo=customers_repo,
@@ -71,7 +71,7 @@ def create_ticket_route(
 
     if payload.auto_generate:
         background_tasks.add_task(
-            _generate_and_store_draft_background,
+            generate_and_store_background,
             ticket['id'],
             tickets_repo,
             customers_repo,
@@ -109,6 +109,7 @@ def generate_draft_route(
     draft_service:DraftService=Depends(get_draft_service),
     copilot:SupportCopilot=Depends(get_copilot_or_503)
 )->dict[str,Any]:
+    print("entering before the ticket...")
     ticket=tickets_repo.get_by_id(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404,detail="Ticket not found")
@@ -117,6 +118,10 @@ def generate_draft_route(
         raise HTTPException(status_code=404,detail="Customer not found")
 
     try:
+        logger.info(
+            "Starting draft generation for ticket %s",
+            ticket_id,
+        )
         draft=draft_service.generate_and_store_manual(
             ticket_id=ticket_id,
             ticket=ticket,
@@ -124,8 +129,21 @@ def generate_draft_route(
             drafts_repo=drafts_repo,
             copilot=copilot,
         )
+        logger.info(
+            "Draft %s saved for ticket %s",
+            draft["id"],
+            ticket_id,
+        )
     except Exception as exc:
-        raise HTTPException(status_code=500,detail=f"Failed to generate draft: {exc}") from exc
+        logger.exception(
+            "Draft generation failed for ticket %s",
+            ticket_id,
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate draft: {exc}",
+        ) from exc
     return {
         "ticket_id":ticket_id,
         "draft":draft_service.serialize_draft(draft),
