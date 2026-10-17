@@ -23,7 +23,9 @@ def get_draft_route(
     draft_service:DraftService=Depends(get_draft_service),
 
 )->dict:
+    print("entering before draft creation")
     draft=drafts_repo.get_latest_for_ticket(ticket_id)
+    print("entering after draft creation")
     if not draft:
         print("ENtering to draft not found service")
         raise HTTPException(status_code=404,detail='Draft not found')
@@ -54,7 +56,7 @@ def update_draft_route(
                 context_used=draft_service.parse_context_used(updated.get("context_used"))
                 get_copilot().save_accepted_resolution(
                     customer_email=relation["customer_email"],
-                    customer_company=relation.get["customer_company"],
+                    customer_company=relation.get("customer_company"),
                     ticket_subject=relation["subject"],
                     ticket_description=relation["description"],
                     draft_content=updated["content"],

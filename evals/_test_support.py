@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = ROOT / "evals" / "dataset" / "golden.json"
 REPORTS_DIR = ROOT / "evals" / "reports"
 DEFAULT_EVAL_GROQ_MODEL = "llama-3.3-70b-specdec"
-DEFAULT_EVAL_RUNTIME_GROQ_MODEL = "llama-3.1-8b-instant"
+DEFAULT_EVAL_RUNTIME_GROQ_MODEL = "openai/gpt-oss-20b"
 
 _TRANSIENT_MARKERS = (
     "429",

@@ -11,22 +11,24 @@ from customer_support_agent.services.copilot_service import SupportCopilot
 
 class DraftService:
     def serialize_draft(self,draft:dict[str,Any])->dict[str,Any]:
-        context_raw=draft.get('context_used')
-        context_data:dict[str,Any] | None=None
+        # context_raw=draft.get('context_used')
+        # context_data:dict[str,Any] | None=None
 
-        if context_raw:
-            try:
-                context_data=json.loads(context_raw)
-            except json.JSONDecodeError:
-                context_data={"raw":context_raw}
+        context_data=self.parse_context_used(draft.get('context_used'))
 
-            return {
-                "id":draft['id'],
-                "ticket_id":draft["ticket_id"],
-                "content":draft['content'],
-                "context_used":context_data,
-                "status":draft["status"],
-                "created_at":draft["created_at"]
+        # if context_raw:
+        #     try:
+        #         context_data=json.loads(context_raw)
+        #     except json.JSONDecodeError:
+        #         context_data={"raw":context_raw}
+
+        return {
+            "id":draft['id'],
+            "ticket_id":draft["ticket_id"],
+            "content":draft['content'],
+            "context_used":context_data,
+            "status":draft["status"],
+            "created_at":draft["created_at"]
             }
         
     def serialize_ticket(self,ticket:dict[str,Any])->dict[str,Any]:
