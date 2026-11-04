@@ -59,23 +59,23 @@ The project currently includes banking-oriented knowledge-base examples, such as
 
 ## Architecture
 
-| Component | Responsibility |
-|---|---|
-| `main.py` | Creates and starts the FastAPI application. |
-| `app.py` | Runs the Streamlit support dashboard. |
-| `customer_support_agent/api/` | FastAPI app factory, dependencies, and route handlers. |
-| `customer_support_agent/core/settings.py` | Environment-based settings, storage paths, and directory setup. |
-| `customer_support_agent/services/` | Copilot orchestration, draft workflow, knowledge operations, and guardrails. |
-| `customer_support_agent/integration/rag/` | ChromaDB-backed knowledge retrieval. |
-| `customer_support_agent/integration/memory/` | Mem0 customer-memory integration. |
-| `customer_support_agent/integration/tools/` | Tools available to the support agent. |
-| `customer_support_agent/repositories/sqlite/` | SQLite persistence for customers, tickets, and drafts. |
-| `customer_support_agent/schemas/` | API request/response schemas. |
-| `customer_support_agent/observability/` | Request tracing and observability utilities. |
-| `knowledge_base/` | Source Markdown documents used for retrieval. |
-| `tests/` | General application tests. |
-| `evals/` | Evaluation dataset, end-to-end evaluation tests, and report generation. |
-| `data/` | Local runtime database, vector-store data, and traces. |
+| Component                                     | Responsibility                                                               |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| `main.py`                                     | Creates and starts the FastAPI application.                                  |
+| `app.py`                                      | Runs the Streamlit support dashboard.                                        |
+| `customer_support_agent/api/`                 | FastAPI app factory, dependencies, and route handlers.                       |
+| `customer_support_agent/core/settings.py`     | Environment-based settings, storage paths, and directory setup.              |
+| `customer_support_agent/services/`            | Copilot orchestration, draft workflow, knowledge operations, and guardrails. |
+| `customer_support_agent/integration/rag/`     | ChromaDB-backed knowledge retrieval.                                         |
+| `customer_support_agent/integration/memory/`  | Mem0 customer-memory integration.                                            |
+| `customer_support_agent/integration/tools/`   | Tools available to the support agent.                                        |
+| `customer_support_agent/repositories/sqlite/` | SQLite persistence for customers, tickets, and drafts.                       |
+| `customer_support_agent/schemas/`             | API request/response schemas.                                                |
+| `customer_support_agent/observability/`       | Request tracing and observability utilities.                                 |
+| `knowledge_base/`                             | Source Markdown documents used for retrieval.                                |
+| `tests/`                                      | General application tests.                                                   |
+| `evals/`                                      | Evaluation dataset, end-to-end evaluation tests, and report generation.      |
+| `data/`                                       | Local runtime database, vector-store data, and traces.                       |
 
 ## Technology Stack
 
@@ -129,7 +129,7 @@ Create a file named `.env` in the project root:
 ```env
 GROQ_API_KEY=your_groq_api_key
 GOOGLE_API_KEY=your_google_api_key
-OPENAI_API_KEY=
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 Replace the placeholder with your own key. Keep `.env` private and out of Git.
@@ -138,20 +138,20 @@ Replace the placeholder with your own key. Keep `.env` private and out of Git.
 
 The application reads settings from environment variables and the `.env` file. The following are the main settings defined by the project.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `GROQ_API_KEY` | Empty | API key for Groq model access. |
-| `GROQ_MODEL` | `llama-3.1-8b-instant` | Chat model used for drafting. |
-| `LLM_TEMPERATURE` | `0.2` | Controls response-generation randomness. |
-| `GOOGLE_API_KEY` | Empty | API key for Google embedding access. |
-| `GOOGLE_EMBEDDING_MODEL` | `gemini-embedding-001` | Configured embedding model identifier. |
-| `OPENAI_API_KEY` | Empty | Optional key for an OpenAI embedding fallback, if configured. |
-| `ENABLE_LOCAL_EMBEDDINGS` | `false` | Enables the optional local-embedding setting when supported by the integration. |
-| `API_HOST` | `0.0.0.0` | Host address used by the API server. |
-| `API_PORT` | `8000` | Port used by the API server. |
-| `API_BASE_URL` | `http://localhost:8000` | API URL used by the Streamlit dashboard. |
-| `GUARDRAILS_ENABLED` | `true` | Enables/disables guardrail checks. |
-| `TRACER_ENABLED` | `true` | Enables/disables request tracing. |
+| Variable                  | Default                 | Purpose                                                                         |
+| ------------------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| `GROQ_API_KEY`            | Empty                   | API key for Groq model access.                                                  |
+| `GROQ_MODEL`              | `llama-3.1-8b-instant`  | Chat model used for drafting.                                                   |
+| `LLM_TEMPERATURE`         | `0.2`                   | Controls response-generation randomness.                                        |
+| `GOOGLE_API_KEY`          | Empty                   | API key for Google embedding access.                                            |
+| `GOOGLE_EMBEDDING_MODEL`  | `gemini-embedding-001`  | Configured embedding model identifier.                                          |
+| `OPENAI_API_KEY`          | Empty                   | Optional key for an OpenAI embedding fallback, if configured.                   |
+| `ENABLE_LOCAL_EMBEDDINGS` | `false`                 | Enables the optional local-embedding setting when supported by the integration. |
+| `API_HOST`                | `0.0.0.0`               | Host address used by the API server.                                            |
+| `API_PORT`                | `8000`                  | Port used by the API server.                                                    |
+| `API_BASE_URL`            | `http://localhost:8000` | API URL used by the Streamlit dashboard.                                        |
+| `GUARDRAILS_ENABLED`      | `true`                  | Enables/disables guardrail checks.                                              |
+| `TRACER_ENABLED`          | `true`                  | Enables/disables request tracing.                                               |
 
 Additional retrieval settings are available in `customer_support_agent/core/settings.py`, including chunk size, chunk overlap, RAG top-k, and memory top-k.
 
@@ -201,19 +201,19 @@ Treat generated responses as suggestions, not automatically approved customer co
 
 The API is served by FastAPI. Open `http://localhost:8000/docs` while the backend is running for the live request/response schemas.
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/` | Returns a basic service status message. |
-| `GET` | `/health` | Health check. |
-| `POST` | `/api/tickets` | Create a support ticket. |
-| `GET` | `/api/tickets` | List support tickets. |
-| `GET` | `/api/tickets/{id}` | Retrieve a ticket by ID. |
-| `POST` | `/api/tickets/{id}/generate-draft` | Generate a draft reply for a ticket. |
-| `GET` | `/api/drafts/{ticket_id}` | Retrieve the latest draft for a ticket. |
-| `PATCH` | `/api/drafts/{draft_id}` | Update draft content and/or status. |
-| `POST` | `/api/knowledge/ingest` | Ingest knowledge-base documents. |
-| `GET` | `/api/customers/{id}/memories` | List memories associated with a customer. |
-| `GET` | `/api/customers/{id}/memory-search` | Search customer memories. |
+| Method  | Endpoint                            | Purpose                                   |
+| ------- | ----------------------------------- | ----------------------------------------- |
+| `GET`   | `/`                                 | Returns a basic service status message.   |
+| `GET`   | `/health`                           | Health check.                             |
+| `POST`  | `/api/tickets`                      | Create a support ticket.                  |
+| `GET`   | `/api/tickets`                      | List support tickets.                     |
+| `GET`   | `/api/tickets/{id}`                 | Retrieve a ticket by ID.                  |
+| `POST`  | `/api/tickets/{id}/generate-draft`  | Generate a draft reply for a ticket.      |
+| `GET`   | `/api/drafts/{ticket_id}`           | Retrieve the latest draft for a ticket.   |
+| `PATCH` | `/api/drafts/{draft_id}`            | Update draft content and/or status.       |
+| `POST`  | `/api/knowledge/ingest`             | Ingest knowledge-base documents.          |
+| `GET`   | `/api/customers/{id}/memories`      | List memories associated with a customer. |
+| `GET`   | `/api/customers/{id}/memory-search` | Search customer memories.                 |
 
 ### Example: create a ticket
 
