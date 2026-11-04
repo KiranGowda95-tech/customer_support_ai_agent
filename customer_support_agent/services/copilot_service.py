@@ -909,7 +909,7 @@ class SupportCopilot:
                         HumanMessage(content=fallback_user)
                     ]
                 )
-                draft_text=self.extract_content(response).stripe()
+                draft_text=self.extract_content(response).strip()
                 if draft_text:
                     draft_text,output_result=self._apply_output_guardrails(draft_text)
                     guardrail_outcomes['output']=output_result
