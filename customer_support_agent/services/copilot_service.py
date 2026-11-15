@@ -66,9 +66,29 @@ class SupportCopilot:
         self.rag = KnowledgeBaseService(settings=settings)
 
     
-    def generate_draft(self, ticket: dict[str, Any], customer: dict[str, Any]) -> dict[str, Any]:
+    def generate_draft(self, ticket: dict[str, Any], customer: dict[str, Any],messages:list[dict[str,Any]] | None=None) -> dict[str, Any]:
+
+        messages = messages or []
+
+        conversation_history = "\n".join(
+            f"{'Customer' if item['sender'] == 'customer' else 'Support Agent'}: "
+            f"{item['content']}"
+            for item in messages[-12:]
+        )
+
+        latest_customer_message = next(
+            (
+                item["content"]
+                for item in reversed(messages)
+                if item["sender"] == "customer"
+            ),
+            ticket["description"],
+        )
+
+
+
         input_result=self._guardrails.check_input(
-            f"{ticket['subject']}\n{ticket['description']}"
+            f"{ticket['subject']}\n{latest_customer_message}"
         )
 
         guardrail_outcomes:dict[str,Any]={
@@ -117,8 +137,8 @@ class SupportCopilot:
         )
 
         system_prompt = self._build_system_prompt(memory_hits=memory_hits, kb_hits=kb_hits)
-        user_prompt = self._build_user_prompt(ticket=ticket, customer=customer,tool_calls=prefetched_tool_calls)
-        trace_user_prompt=self._build_user_prompt(ticket=safe_ticket,customer=trace_customer,tool_calls=prefetched_tool_calls)
+        user_prompt = self._build_user_prompt(ticket=ticket, customer=customer,tool_calls=prefetched_tool_calls,conversation_history=conversation_history)
+        trace_user_prompt=self._build_user_prompt(ticket=safe_ticket,customer=trace_customer,tool_calls=prefetched_tool_calls,conversation_history=conversation_history)
         
         
         draft_text=""
@@ -202,7 +222,8 @@ class SupportCopilot:
                 memory_hits=memory_hits,
                 kb_hits=kb_hits,
                 tool_calls=tool_calls,
-                guardrail_outcomes=guardrail_outcomes
+                guardrail_outcomes=guardrail_outcomes,
+                conversation_history=conversation_history
             )
             used_fallback = True
             used_direct_llm=False
@@ -250,6 +271,7 @@ class SupportCopilot:
 
         context_used["used_direct_llm"]=used_direct_llm
         context_used["used_fallback"]=used_fallback
+        context_used["agent_runtime"]="direct_llm"
 
         return {
             "draft": draft_text,
@@ -359,8 +381,7 @@ class SupportCopilot:
 
         if company_scope:
             scope_user_ids.append(company_scope)
-        else:
-            self._memory_error="Company scope missing or invalid"
+        
 
         return self._unique_ordered(scope_user_ids)
 
@@ -492,12 +513,23 @@ class SupportCopilot:
             tool_names.append("lookup_open_ticket_load")
         return list(dict.fromkeys(tool_names))
         
-    @staticmethod
-    def _prefetch_tool_calls(self,ticket:dict[str,Any],customer:dict[str,Any])->list[dict[str,Any]]:
-        tool_calls:list[dict[str,Any]]=[]
-        arguments={"customer_email":customer["email"]}
-        for tool_name in self.TicketsRepository_tool_names_for_ticket(ticket):
-            tool_calls.append(self._invoke_tool_for_trace(tool_name=tool_name,arguments=arguments))
+    def _prefetch_tool_calls(
+            self,
+            ticket: dict[str, Any],
+            customer: dict[str, Any],
+        ) -> list[dict[str, Any]]:
+
+            tool_calls: list[dict[str, Any]] = []
+            arguments = {"customer_email": customer["email"]}
+
+            for tool_name in self.TicketsRepository_tool_names_for_ticket(ticket):
+                tool_calls.append(
+                    self._invoke_tool_for_trace(
+                        tool_name=tool_name,
+                        arguments=arguments,
+                    )
+                )
+
             return tool_calls
 
 
@@ -575,7 +607,7 @@ class SupportCopilot:
         return value
 
     @staticmethod
-    def _build_user_prompt(ticket: dict[str, Any], customer: dict[str, Any],tool_calls:list[dict[str,Any]]|None=None) -> str:
+    def _build_user_prompt(ticket: dict[str, Any], customer: dict[str, Any],tool_calls:list[dict[str,Any]]|None=None,conversation_history:str="") -> str:
 
         verified_findings = ""
 
@@ -601,6 +633,9 @@ class SupportCopilot:
             "Use tools only if the customer expecitly asks about plan priority/SLA, plan benifits"
             "billing/account-specific status,or open ticket load."
             "Otherwise answer directly from the KB context."
+            f"Conversation History:\n{conversation_history or 'No additional messages.'}\n\n"
+            "Respond specifically to the latest customer message. "
+            "Use the earlier conversation for context and avoid repeating questions already answered.\n\n"
             f"{verified_findings}"
         )
 
@@ -841,6 +876,7 @@ class SupportCopilot:
         kb_hits: list[dict[str, Any]],
         tool_calls: list[dict[str, Any]],
         guardrail_outcomes: dict[str,Any],
+        conversation_history:str=""
     ) -> str:
         tool_summaries = [
             self._trim_text(item.get("summary") or item.get("output_text", ""))
@@ -865,6 +901,8 @@ class SupportCopilot:
             f"Company: {customer.get('company') or 'Unknown'}\n"
             f"Ticket subject: {ticket.get('subject', '')}\n"
             f"Ticket description: {ticket.get('description', '')}\n\n"
+            f"Conversation History:\n{conversation_history or 'No additional messages.'}\n\n"
+            "Answer the latest customer message using earlier messages as context.\n\n"
             "Memory highlights:\n"
             f"{chr(10).join('- ' + item for item in memory_summaries) if memory_summaries else '- none'}\n\n"
             "Knowledge highlights:\n"
@@ -880,6 +918,8 @@ class SupportCopilot:
             f"Company: {trace_customer.get('company') or 'Unknown'}\n"
             f"Ticket subject: {ticket.get('subject', '')}\n"
             f"Ticket description: {ticket.get('description', '')}\n\n"
+            f"Conversation History:\n{conversation_history or 'No additional messages.'}\n\n"
+            "Answer the latest customer message using earlier messages as context.\n\n"
             "Memory highlights:\n"
             f"{chr(10).join('- ' + item for item in memory_summaries) if memory_summaries else '- none'}\n\n"
             "Knowledge highlights:\n"

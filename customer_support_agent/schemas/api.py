@@ -103,3 +103,18 @@ class CustomerMemorySearchResponse(BaseModel):
     query:str
     results: list[dict[str,Any]]
 
+class CustomerMessageCreateRequest(BaseModel):
+    customer_email:EmailStr
+    content:str=Field(min_length=1,max_length=10000)
+
+class AgentReplyCreateRequest(BaseModel):
+    content:str=Field(min_length=1,max_length=10000)
+
+
+class MessageResponse(BaseModel):
+    id:int
+    ticket_id:int
+    sender:Literal["customer","agent"]
+    content:str
+    created_at:str
+    

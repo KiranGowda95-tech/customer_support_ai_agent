@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from customer_support_agent.api.routers import (
     drafts_router,
@@ -10,6 +11,7 @@ from customer_support_agent.api.routers import (
     knowledge_router,
     memory_router,
     tickets_router,
+    messages_router
 )
 
 from customer_support_agent.core.settings import Settings,ensure_directories,get_settings
@@ -27,6 +29,17 @@ def create_app(settings:Settings|None=None)->FastAPI:
 
     app=FastAPI(title=resolved_settings.app_name,lifespan=lifespan)
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173",
+            "http://127.0.0.1:5173"
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"]
+    )
+
     @app.get("/")
     def root():
         return {"status": "Customer Support AI Agent running"}
@@ -36,5 +49,6 @@ def create_app(settings:Settings|None=None)->FastAPI:
     app.include_router(knowledge_router)
     app.include_router(memory_router)
     app.include_router(tickets_router)
+    app.include_router(messages_router)
 
     return app
