@@ -13,6 +13,7 @@ from customer_support_agent.services.copilot_service import SupportCopilot
 from customer_support_agent.services.draft_service import DraftService
 from customer_support_agent.services.guardrails_service import GuardrailsService
 from customer_support_agent.services.knowledge_service import KnowledgeService
+from customer_support_agent.repositories.sqlite.messages import MessagesRepository
 
 @lru_cache
 def get_copilot()->SupportCopilot:
@@ -63,5 +64,8 @@ def get_draft_service()->DraftService:
 
 def get_knowledge_service(settings:Settings=Depends(get_settings_dep))->KnowledgeService:
     return KnowledgeService(settings=settings)
+
+def get_messages_repository()->MessagesRepository:
+    return MessagesRepository()
 
 

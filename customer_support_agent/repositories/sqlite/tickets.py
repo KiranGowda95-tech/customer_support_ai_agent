@@ -78,3 +78,5 @@ class TicketsRepository:
                 (customer_email,),
             ).fetchone()
             return int(row["open_count"]) if row else 0
+
+    

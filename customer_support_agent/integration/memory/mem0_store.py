@@ -80,12 +80,21 @@ class CustomerMemoryStore:
 
         self._memory = Memory.from_config(config)
 
-    def search(self,query:str,user_id:str,limit:int=5)->list[dict[str,Any]]:
-        try:
-            raw=self._memory.search(query,user_id=user_id,limit=limit)
-        except TypeError:
-            raw=self._memory.search(query,user_id=user_id)
-        return self._normalize_results(raw,limit)
+    
+    def search(
+        self,
+        query: str,
+        user_id: str,
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        raw = self._memory.search(
+            query=query,
+            filters={"user_id": user_id},
+            limit=limit,
+        )
+
+        return self._normalize_results(raw, limit)
+
 
     def list_memories(self,user_id:str,limit:int=20)->list[dict[str,Any]]:
         if hasattr(self._memory,"get_all"):

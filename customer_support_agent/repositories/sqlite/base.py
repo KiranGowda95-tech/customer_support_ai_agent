@@ -20,6 +20,7 @@ def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
         return None
     return dict(row)
 
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(
@@ -52,6 +53,18 @@ def init_db() -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticket_id INTEGER NOT NULL,
+                sender TEXT NOT NULL CHECK(sender IN ('customer', 'agent')),
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (ticket_id) REFERENCES tickets(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_messages_ticket_id
+            ON messages(ticket_id, id);
+
             CREATE TRIGGER IF NOT EXISTS tickets_updated_at_trigger
             AFTER UPDATE ON tickets
             FOR EACH ROW
@@ -60,6 +73,7 @@ def init_db() -> None:
                 SET updated_at = CURRENT_TIMESTAMP
                 WHERE id = OLD.id;
             END;
-
-            """ 
+            """
         )
+
+

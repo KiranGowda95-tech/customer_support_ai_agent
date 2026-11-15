@@ -8,6 +8,7 @@ from customer_support_agent.repositories.sqlite.customer import customersReposit
 from customer_support_agent.repositories.sqlite.drafts import DraftsRepository
 from customer_support_agent.repositories.sqlite.tickets import TicketsRepository
 from customer_support_agent.services.copilot_service import SupportCopilot
+from customer_support_agent.repositories.sqlite.messages import MessagesRepository
 
 class DraftService:
     def serialize_draft(self,draft:dict[str,Any])->dict[str,Any]:
@@ -57,36 +58,52 @@ class DraftService:
         
     def generate_and_store_background(
         self,
-        ticket_id:int,
+        ticket_id: int,
         tickets_repo: TicketsRepository,
         customers_repo: customersRepository,
         drafts_repo: DraftsRepository,
-        copilot_factory:Callable[[],SupportCopilot],
-        logger:logging.Logger,
-    )->dict[str,Any] | None:
-        ticket=tickets_repo.get_by_id(ticket_id)
+        messages_repo: MessagesRepository,
+        copilot_factory: Callable[[], SupportCopilot],
+        logger: logging.Logger,
+    ) -> dict[str, Any] | None:
+
+        ticket = tickets_repo.get_by_id(ticket_id)
         if not ticket:
-            logger.warning(f"Ticket {ticket_id} not found for background draft generation")
+            logger.warning(
+                f"Ticket {ticket_id} not found for background draft generation"
+            )
             return None
 
-        customer=customers_repo.get_by_id(ticket["customer_id"])
+        customer = customers_repo.get_by_id(ticket["customer_id"])
         if not customer:
-            logger.warning(f"Customer {ticket['customer_id']} not found for ticket {ticket_id}")
+            logger.warning(
+                f"Customer {ticket['customer_id']} not found for ticket {ticket_id}"
+            )
             return None
-        
+
         try:
-            copilot=copilot_factory()
-            result=copilot.generate_draft(ticket=ticket,customer=customer)
-            draft_text,context_used=self._normalize_draft_result(result)
+            messages = messages_repo.list_by_ticket(ticket_id)
+
+            copilot = copilot_factory()
+            result = copilot.generate_draft(
+                ticket=ticket,
+                customer=customer,
+                messages=messages,
+            )
+
+            draft_text, context_used = self._normalize_draft_result(result)
+
             return drafts_repo.create(
                 ticket_id=ticket_id,
                 content=draft_text,
                 context_used=json.dumps(context_used),
-                status="pending"
+                status="pending",
             )
 
         except Exception as exc:
-            logger.error(f"Failed to create copilot for background draft generation: {exc}")
+            logger.error(
+                f"Failed to create copilot for background draft generation: {exc}"
+            )
             return drafts_repo.create(
                 ticket_id=ticket_id,
                 content=(
@@ -102,10 +119,13 @@ class DraftService:
         ticket_id:int,
         ticket:dict[str,Any],
         customer:dict[str,Any],
+        messages:list[dict[str,Any]],
         drafts_repo:DraftsRepository,
         copilot:SupportCopilot,
     )->dict[str,Any]:
-        result = copilot.generate_draft(ticket=ticket, customer=customer)
+        
+        result = copilot.generate_draft(ticket=ticket, customer=customer,messages=messages)
+
         draft_text, context_used = self._normalize_draft_result(result)
         return drafts_repo.create(
             ticket_id=ticket_id,

@@ -1,139 +1,129 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Inbox, Clock3, CheckCircle2, AlertCircle } from 'lucide-react';
 
-import { Inbox, Clock3, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
-
-import { ticketData } from './data/ticketData';
-
-import TicketFilters from './components/TicketFilters';
-import TicketTable from './components/TicketTable';
+import { useSupportChat } from '../customer-chat/useSupportChat';
+import ConversationInbox from './ConversationInbox';
 import TicketConversation from './components/TicketConversation';
 
 function TicketPage() {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('All');
-  const [priority, setPriority] = useState('All');
-  const [currentPage, setCurrentPage] = useState(1);
+  const {
+    tickets,
+    refreshTickets,
+    loadMessages,
+    activeCustomerTicketId,
+    setActiveCustomerTicketId,
+  } = useSupportChat();
+
   const [selectedTicket, setSelectedTicket] = useState(null);
 
-  const pageSize = 5;
+  // Automatically select the newest ticket when the inbox opens.
+  useEffect(() => {
+    if (tickets.length === 0) return;
 
-  // Calculate ticket summary
+    if (!selectedTicket) {
+      const sharedTicket = tickets.find(
+        (ticket) => String(ticket.id) === String(activeCustomerTicketId),
+      );
+
+      const ticketToSelect = sharedTicket || tickets[0];
+
+      setSelectedTicket(ticketToSelect);
+      setActiveCustomerTicketId(ticketToSelect.id);
+    }
+  }, [
+    tickets,
+    selectedTicket,
+    activeCustomerTicketId,
+    setActiveCustomerTicketId,
+  ]);
+
+  // Refresh the ticket list every 15 seconds.
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      refreshTickets();
+    }, 15000);
+
+    return () => clearInterval(intervalId);
+  }, [refreshTickets]);
+
+  // Refresh messages only for the selected conversation.
+  useEffect(() => {
+    if (!selectedTicket?.id) return;
+
+    loadMessages(selectedTicket.id).catch((error) => {
+      console.error('Failed to load selected conversation:', error);
+    });
+
+    const intervalId = setInterval(() => {
+      loadMessages(selectedTicket.id).catch((error) => {
+        console.error('Failed to refresh selected conversation:', error);
+      });
+    }, 4000);
+
+    return () => clearInterval(intervalId);
+  }, [selectedTicket?.id, loadMessages]);
+
   const stats = [
     {
-      title: 'Total Tickets',
-      value: ticketData.length,
+      title: 'Total Conversations',
+      value: tickets.length,
       icon: Inbox,
       color: 'bg-blue-50 text-blue-600',
     },
     {
-      title: 'Open Tickets',
-      value: ticketData.filter((t) => t.status === 'Open').length,
+      title: 'Open',
+      value: tickets.filter((t) => t.status === 'Open').length,
       icon: AlertCircle,
       color: 'bg-amber-50 text-amber-600',
     },
     {
       title: 'In Progress',
-      value: ticketData.filter((t) => t.status === 'In Progress').length,
+      value: tickets.filter((t) => t.status === 'In Progress').length,
       icon: Clock3,
       color: 'bg-violet-50 text-violet-600',
     },
     {
       title: 'Resolved',
-      value: ticketData.filter((t) => t.status === 'Resolved').length,
+      value: tickets.filter((t) => t.status === 'Resolved').length,
       icon: CheckCircle2,
       color: 'bg-emerald-50 text-emerald-600',
     },
   ];
 
-  // Search and filter tickets
-  const filteredTickets = useMemo(() => {
-    return ticketData.filter((ticket) => {
-      const query = search.toLowerCase().trim();
-
-      const matchesSearch =
-        ticket.id.toLowerCase().includes(query) ||
-        ticket.customer.toLowerCase().includes(query) ||
-        ticket.subject.toLowerCase().includes(query) ||
-        ticket.email.toLowerCase().includes(query);
-
-      const matchesStatus = status === 'All' || ticket.status === status;
-
-      const matchesPriority =
-        priority === 'All' || ticket.priority === priority;
-
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [search, status, priority]);
-
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / pageSize));
-
-  const safePage = Math.min(currentPage, totalPages);
-
-  const paginatedTickets = filteredTickets.slice(
-    (safePage - 1) * pageSize,
-    safePage * pageSize,
-  );
-
-  const resetFilters = () => {
-    setSearch('');
-    setStatus('All');
-    setPriority('All');
-    setCurrentPage(1);
-  };
-
-  if (selectedTicket) {
-    return (
-      <TicketConversation
-        ticket={selectedTicket}
-        onBack={() => setSelectedTicket(null)}
-      />
-    );
-  }
-
   return (
-    <div className='mx-auto max-w-[1600px]'>
-      {/* Page heading */}
-      <div className='mb-7 flex flex-wrap items-center justify-between gap-4'>
-        <div>
-          <p className='mb-2 text-xs font-medium text-slate-400'>
-            Workspace / Ticket Management
-          </p>
+    <div className='mx-auto max-w-[1600px] space-y-6'>
+      <div>
+        <p className='mb-2 text-xs font-medium text-slate-400'>
+          Workspace / Customer Support
+        </p>
 
-          <h1 className='text-2xl font-bold tracking-tight text-slate-900'>
-            Tickets
-          </h1>
+        <h1 className='text-2xl font-bold tracking-tight text-slate-900'>
+          Conversations
+        </h1>
 
-          <p className='mt-2 text-sm text-slate-500'>
-            Manage, track and resolve customer support requests.
-          </p>
-        </div>
-
-        <button className='flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700'>
-          <Plus size={17} />
-          Create Ticket
-        </button>
+        <p className='mt-2 text-sm text-slate-500'>
+          Manage customer conversations and respond with AI assistance.
+        </p>
       </div>
 
-      {/* Summary cards */}
-      <div className='mb-7 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4'>
+      <div className='grid grid-cols-2 gap-3 xl:grid-cols-4'>
         {stats.map((stat) => {
           const Icon = stat.icon;
 
           return (
             <div
               key={stat.title}
-              className='rounded-xl border border-slate-200 bg-white p-5'
+              className='rounded-xl border border-slate-200 bg-white p-4'
             >
-              <div className='flex items-center justify-between'>
+              <div className='flex items-center justify-between gap-2'>
                 <p className='text-xs font-medium text-slate-500'>
                   {stat.title}
                 </p>
 
                 <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg ${stat.color}`}
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.color}`}
                 >
-                  <Icon size={18} />
+                  <Icon size={16} />
                 </div>
               </div>
 
@@ -145,47 +135,36 @@ function TicketPage() {
         })}
       </div>
 
-      {/* Ticket list */}
-      <section className='space-y-4'>
-        <div>
-          <h2 className='text-base font-semibold text-slate-900'>
-            All Support Tickets
-          </h2>
+      <div className='grid items-stretch gap-4 xl:grid-cols-[320px_minmax(0,1fr)]'>
+        <ConversationInbox
+          selectedTicket={selectedTicket}
+          onSelectTicket={(ticket) => {
+            setSelectedTicket(ticket);
+            setActiveCustomerTicketId(ticket.id);
+          }}
+        />
 
-          <p className='mt-1 text-xs text-slate-400'>
-            Search and manage your customer requests.
-          </p>
+        <div className='min-w-0'>
+          {selectedTicket ? (
+            <TicketConversation
+              ticket={selectedTicket}
+              onBack={() => setSelectedTicket(null)}
+            />
+          ) : (
+            <div className='flex min-h-[650px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-center'>
+              <Inbox size={36} className='text-slate-300' />
+
+              <h2 className='mt-4 text-sm font-semibold text-slate-700'>
+                Select a conversation
+              </h2>
+
+              <p className='mt-2 text-xs text-slate-400'>
+                Choose a customer from the inbox to view their messages.
+              </p>
+            </div>
+          )}
         </div>
-
-        <TicketFilters
-          search={search}
-          setSearch={(value) => {
-            setSearch(value);
-            setCurrentPage(1);
-          }}
-          status={status}
-          setStatus={(value) => {
-            setStatus(value);
-            setCurrentPage(1);
-          }}
-          priority={priority}
-          setPriority={(value) => {
-            setPriority(value);
-            setCurrentPage(1);
-          }}
-          onReset={resetFilters}
-        />
-
-        <TicketTable
-          tickets={paginatedTickets}
-          currentPage={safePage}
-          totalPages={totalPages}
-          setCurrentPage={setCurrentPage}
-          totalResults={filteredTickets.length}
-          pageSize={pageSize}
-          onSelectTicket={setSelectedTicket}
-        />
-      </section>
+      </div>
     </div>
   );
 }

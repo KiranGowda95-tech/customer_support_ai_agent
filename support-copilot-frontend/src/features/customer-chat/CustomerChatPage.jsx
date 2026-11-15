@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSupportChat } from './useSupportChat';
+
 import {
   MessageCircle,
   Send,
@@ -9,33 +11,73 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 
-function CustomerChatPage() {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'agent',
-      content: 'Hello! Welcome to Support Copilot. How can we help you today?',
-      time: '10:30 AM',
-    },
-  ]);
+function CustomerChatTempPage() {
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+
+  const {
+    tickets,
+    activeCustomerTicketId,
+    addCustomerTicket,
+    addMessage,
+    getMessages,
+    loadMessages,
+  } = useSupportChat();
+
+  const activeTicket = tickets.find(
+    (ticket) => String(ticket.id) === String(activeCustomerTicketId),
+  );
+
+  const messages = activeCustomerTicketId
+    ? getMessages(activeCustomerTicketId)
+    : [];
+
+  // Load and refresh only the active customer conversation.
+  useEffect(() => {
+    if (!activeCustomerTicketId) return;
+
+    loadMessages(activeCustomerTicketId).catch((error) => {
+      console.error('Failed to load customer conversation:', error);
+    });
+
+    const intervalId = setInterval(() => {
+      loadMessages(activeCustomerTicketId).catch((error) => {
+        console.error('Failed to refresh customer conversation:', error);
+      });
+    }, 4000);
+
+    return () => clearInterval(intervalId);
+  }, [activeCustomerTicketId, loadMessages]);
 
   const [message, setMessage] = useState('');
 
-  const sendMessage = () => {
-    if (!message.trim()) return;
+  const sendMessage = async () => {
+    const content = message.trim();
 
-    const newMessage = {
-      id: Date.now(),
-      sender: 'customer',
-      content: message.trim(),
-      time: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    };
+    if (!content || sending) return;
 
-    setMessages((previous) => [...previous, newMessage]);
-    setMessage('');
+    setSending(true);
+    setSendError('');
+
+    try {
+      if (!activeCustomerTicketId) {
+        await addCustomerTicket({
+          customer: 'Demo Customer',
+          email: 'customer@example.com',
+          subject: content.slice(0, 60),
+          description: content,
+        });
+      } else {
+        await addMessage(activeCustomerTicketId, 'customer', content);
+      }
+
+      setMessage('');
+    } catch (error) {
+      console.error('Message sending failed:', error);
+      setSendError(error.message || 'Unable to send your message.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -50,6 +92,11 @@ function CustomerChatPage() {
 
             <div>
               <h1 className='font-semibold text-slate-900'>Support Copilot</h1>
+              <p className='text-xs text-slate-400'>
+                {activeTicket
+                  ? `Conversation with ${activeTicket.customer} · Ticket #${activeTicket.id}`
+                  : 'Customer Support'}
+              </p>
               <p className='text-xs text-emerald-600 flex items-center gap-1.5'>
                 <span className='w-2 h-2 rounded-full bg-emerald-500' />
                 Customer Support
@@ -72,35 +119,46 @@ function CustomerChatPage() {
               </span>
             </div>
 
-            {messages.map((item) => (
-              <div
-                key={item.id}
-                className={`flex ${
-                  item.sender === 'customer' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                <div className='max-w-[85%]'>
-                  <div
-                    className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
-                      item.sender === 'customer'
-                        ? 'bg-blue-600 text-white rounded-br-sm'
-                        : 'bg-white text-slate-700 border border-slate-200 rounded-bl-sm shadow-sm'
-                    }`}
-                  >
-                    {item.content}
-                  </div>
-
-                  <p
-                    className={`text-[11px] mt-2 text-slate-400 ${
-                      item.sender === 'customer' ? 'text-right' : 'text-left'
-                    }`}
-                  >
-                    {item.sender === 'customer' ? 'You' : 'Customer Care'} ·{' '}
-                    {item.time}
+            {messages.length === 0 ? (
+              <div className='flex justify-start'>
+                <div className='max-w-[85%] rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm'>
+                  Hello! Welcome to Support Copilot. How can we help you today?
+                  <p className='mt-2 text-[11px] text-slate-400'>
+                    Customer Care
                   </p>
                 </div>
               </div>
-            ))}
+            ) : (
+              messages.map((item) => (
+                <div
+                  key={item.id}
+                  className={`flex ${
+                    item.sender === 'customer' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  <div className='max-w-[85%]'>
+                    <div
+                      className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                        item.sender === 'customer'
+                          ? 'bg-blue-600 text-white rounded-br-sm'
+                          : 'bg-white text-slate-700 border border-slate-200 rounded-bl-sm shadow-sm whitespace-pre-line'
+                      }`}
+                    >
+                      {item.content}
+                    </div>
+
+                    <p
+                      className={`text-[11px] mt-2 text-slate-400 ${
+                        item.sender === 'customer' ? 'text-right' : 'text-left'
+                      }`}
+                    >
+                      {item.sender === 'customer' ? 'You' : 'Customer Care'} ·{' '}
+                      {item.time}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </main>
 
@@ -133,11 +191,16 @@ function CustomerChatPage() {
               <button
                 type='button'
                 onClick={sendMessage}
-                disabled={!message.trim()}
+                disabled={!message.trim() || sending}
                 className='w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition'
                 aria-label='Send message'
               >
                 <Send size={17} />
+                {sendError && (
+                  <p className='mt-2 text-center text-xs text-red-500'>
+                    {sendError}
+                  </p>
+                )}
               </button>
             </div>
 
@@ -151,4 +214,4 @@ function CustomerChatPage() {
   );
 }
 
-export default CustomerChatPage;
+export default CustomerChatTempPage;

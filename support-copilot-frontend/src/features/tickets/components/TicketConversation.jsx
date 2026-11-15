@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import { useSupportChat } from '../../customer-chat/useSupportChat';
+import {
+  generateTicketDraft,
+  updateTicketDraft,
+} from '../../../services/supportChatApi';
 import {
   ArrowLeft,
   UserRound,
@@ -12,219 +17,257 @@ import {
 } from 'lucide-react';
 
 function TicketConversation({ ticket, onBack }) {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'customer',
-      content: ticket.subject + '. I need help resolving this issue.',
-      time: ticket.createdAt || 'Today',
-    },
-  ]);
+  const { getMessages, addMessage } = useSupportChat();
+
+  const messages = getMessages(ticket.id);
 
   const [draft, setDraft] = useState('');
+  const [draftId, setDraftId] = useState(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [replySent, setReplySent] = useState(false);
+  const [acceptError, setAcceptError] = useState('');
+
   const [draftGenerated, setDraftGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [draftContext, setDraftContext] = useState(null);
+  const [draftError, setDraftError] = useState('');
 
-  const generateDraft = () => {
+  const generateDraft = async () => {
     setGenerating(true);
+    setDraftError('');
+    setSaveError('');
+    setSaveSuccess('');
 
-    setTimeout(() => {
-      setDraft(
-        `Hello ${ticket.customer},\n\nThank you for contacting our support team. We understand your concern regarding "${ticket.subject}".\n\nWe're sorry for the inconvenience. Our team is reviewing your request and will help you resolve this issue. If you have any additional information, please share it with us.\n\nThank you for your patience.\nSupport Team`,
-      );
+    try {
+      const response = await generateTicketDraft(ticket.id);
 
+      setDraft(response.draft.content);
+      setDraftId(response.draft.id);
+      setDraftContext(response.draft.context_used);
       setDraftGenerated(true);
+    } catch (error) {
+      console.error('AI draft generation failed:', error);
+      setDraftError(error.message || 'Unable to generate AI draft.');
+    } finally {
       setGenerating(false);
-    }, 1000);
+    }
   };
 
-  const sendReply = () => {
-    if (!draft.trim()) return;
+  const saveDraft = async () => {
+    const content = draft.trim();
 
-    const newMessage = {
-      id: Date.now(),
-      sender: 'agent',
-      content: draft.trim(),
-      time: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    };
+    if (!content || !draftId || savingDraft || replySent) return;
 
-    setMessages((previous) => [...previous, newMessage]);
-    setDraft('');
-    setDraftGenerated(false);
+    setSavingDraft(true);
+    setSaveSuccess('');
+    setSaveError('');
+
+    try {
+      const response = await updateTicketDraft(draftId, content);
+
+      setDraft(response.content);
+      setSaveSuccess('Draft saved successfully.');
+    } catch (error) {
+      console.log(error);
+      setSaveError(error.message || 'Unable to save draft.');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+
+  const sendReply = async () => {
+    const content = draft.trim();
+
+    if (!content || !draftId || sending || replySent) return;
+
+    setSending(true);
+    setSendError('');
+    setSaveError('');
+    setSaveSuccess('');
+    setAcceptError('');
+
+    try {
+      const savedDraft = await updateTicketDraft(draftId, content, 'pending');
+
+      setDraft(savedDraft.content);
+
+      await addMessage(ticket.id, 'agent', savedDraft.content);
+
+      setReplySent(true);
+
+      try {
+        const acceptedDraft = await updateTicketDraft(
+          draftId,
+          savedDraft.content,
+          'accepted',
+        );
+
+        setDraft(acceptedDraft.content);
+        setSaveSuccess('Reply sent and draft accepted successfully.');
+      } catch (error) {
+        console.error('Draft acceptence failed: ', error);
+        setSendError(error.message || 'Unable to send reply.');
+      } finally {
+        setSending(false);
+      }
+
+      setDraftGenerated(false);
+    } catch (error) {
+      console.error('Agent reply failed:', error);
+      setSendError(error.message || 'Unable to send reply.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const retryAcceptDraft = async () => {
+    if (!replySent || !draftId || sending) return;
+
+    setSending(true);
+    setAcceptError('');
+
+    try {
+      const response = await updateTicketDraft(draftId, draft, 'accepted');
+
+      setDraft(response.content);
+      setAcceptError('');
+      setSaveSuccess('Draft accepted successfully.');
+    } catch (error) {
+      console.error('Draft acceptance retry failed:', error);
+
+      setAcceptError(error.message || 'Unable to accept the draft.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
-    <div className='mx-auto max-w-[1600px] space-y-5'>
-      {/* Page header */}
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div>
-          <button
-            onClick={onBack}
-            className='mb-3 flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-blue-600'
-          >
-            <ArrowLeft size={15} />
-            Back to Tickets
-          </button>
+    <section className='flex h-full min-h-[650px] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white'>
+      {/* Selected customer header */}
+      <header className='flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4'>
+        <div className='flex min-w-0 items-center gap-3'>
+          <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600'>
+            <UserRound size={19} />
+          </div>
 
-          <p className='text-xs text-slate-400'>
-            Workspace / Tickets / {ticket.id}
-          </p>
-
-          <h1 className='mt-2 text-xl font-bold text-slate-900'>
-            {ticket.subject}
-          </h1>
-
-          <p className='mt-1 text-xs text-slate-500'>
-            Ticket {ticket.id} · Customer conversation
-          </p>
+          <div className='min-w-0'>
+            <h2 className='truncate text-sm font-semibold text-slate-900'>
+              {ticket.customer}
+            </h2>
+            <p className='truncate text-xs text-slate-400'>
+              {ticket.email} · {ticket.id}
+            </p>
+          </div>
         </div>
 
-        <span className='rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700'>
+        <span className='rounded-md bg-blue-50 px-3 py-1.5 text-[10px] font-semibold text-blue-700'>
           {ticket.status}
         </span>
-      </div>
+      </header>
 
-      {/* Customer information */}
-      <section className='rounded-xl border border-slate-200 bg-white p-5'>
-        <div className='flex flex-wrap items-center justify-between gap-4'>
-          <div className='flex items-center gap-3'>
-            <div className='flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 text-blue-600'>
-              <UserRound size={20} />
-            </div>
-
-            <div>
-              <h2 className='text-sm font-semibold text-slate-900'>
-                {ticket.customer}
-              </h2>
-              <p className='mt-1 text-xs text-slate-500'>{ticket.email}</p>
-            </div>
+      {/* Conversation and AI workspace */}
+      <div className='grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]'>
+        {/* Messages */}
+        <div className='flex min-h-[400px] min-w-0 flex-col border-b border-slate-100 xl:border-b-0 xl:border-r'>
+          <div className='border-b border-slate-100 px-5 py-3'>
+            <h3 className='text-xs font-semibold text-slate-800'>
+              Conversation history
+            </h3>
+            <p className='mt-1 text-[10px] text-slate-400'>
+              Messages exchanged with this customer
+            </p>
           </div>
 
-          <div className='flex gap-6'>
-            <div>
-              <p className='text-[10px] text-slate-400'>Priority</p>
-              <p className='mt-1 text-xs font-semibold text-slate-700'>
-                {ticket.priority}
-              </p>
-            </div>
-
-            <div>
-              <p className='text-[10px] text-slate-400'>Assigned to</p>
-              <p className='mt-1 text-xs font-semibold text-slate-700'>
-                {ticket.assignedTo}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Main workspace */}
-      <div className='grid grid-cols-1 gap-5 xl:grid-cols-[1fr_390px]'>
-        {/* Conversation */}
-        <section className='flex min-h-[620px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white'>
-          <div className='flex items-center justify-between border-b border-slate-100 px-5 py-4'>
-            <div>
-              <h2 className='text-sm font-semibold text-slate-900'>
-                Conversation
-              </h2>
-              <p className='mt-1 text-xs text-slate-400'>
-                Customer and agent messages
-              </p>
-            </div>
-
-            <MessageSquare size={18} className='text-slate-400' />
-          </div>
-
-          <div className='flex-1 space-y-6 overflow-y-auto bg-slate-50 p-5'>
-            {messages.map((message) => {
-              const isCustomer = message.sender === 'customer';
+          <div className='min-h-0 flex-1 space-y-5 overflow-y-auto bg-slate-50 p-5'>
+            {messages.map((item) => {
+              const isCustomer = item.sender === 'customer';
 
               return (
                 <div
-                  key={message.id}
+                  key={item.id}
                   className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}
                 >
-                  <div className='max-w-[85%]'>
-                    <div
-                      className={`mb-2 flex items-center gap-2 text-[11px] text-slate-400 ${
-                        isCustomer ? '' : 'justify-end'
+                  <div className='max-w-[90%] min-w-0'>
+                    <p
+                      className={`mb-2 text-[10px] text-slate-400 ${
+                        isCustomer ? '' : 'text-right'
                       }`}
                     >
-                      {isCustomer ? <UserRound size={13} /> : <Bot size={13} />}
-
                       {isCustomer ? ticket.customer : 'Customer Care'}
-                    </div>
+                    </p>
 
                     <div
-                      className={`whitespace-pre-line rounded-xl px-4 py-3 text-sm leading-6 ${
+                      className={`whitespace-pre-line break-words rounded-xl px-4 py-3 text-xs leading-6 ${
                         isCustomer
                           ? 'rounded-tl-sm border border-slate-200 bg-white text-slate-700'
                           : 'rounded-tr-sm bg-blue-600 text-white'
                       }`}
                     >
-                      {message.content}
+                      {item.content}
                     </div>
 
                     <p
-                      className={`mt-2 text-[10px] text-slate-400 ${
+                      className={`mt-1 text-[10px] text-slate-400 ${
                         isCustomer ? '' : 'text-right'
                       }`}
                     >
-                      {message.time}
+                      {item.time}
                     </p>
                   </div>
                 </div>
               );
             })}
           </div>
-        </section>
+        </div>
 
-        {/* AI response workspace */}
-        <section className='flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white'>
-          <div className='border-b border-slate-100 p-5'>
+        {/* AI assistant */}
+        <aside className='flex min-h-[450px] min-w-0 flex-col bg-white'>
+          <div className='border-b border-slate-100 p-4'>
             <div className='flex items-center gap-2'>
               <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600'>
-                <Sparkles size={18} />
+                <Sparkles size={17} />
               </div>
 
               <div>
-                <h2 className='text-sm font-semibold text-slate-900'>
+                <h3 className='text-xs font-semibold text-slate-900'>
                   AI Response Assistant
-                </h2>
-                <p className='text-[11px] text-slate-400'>
+                </h3>
+                <p className='text-[10px] text-slate-400'>
                   Generate and review a response
                 </p>
               </div>
             </div>
           </div>
 
-          <div className='flex-1 space-y-4 p-5'>
+          <div className='flex-1 space-y-4 overflow-y-auto p-4'>
             <div className='rounded-lg border border-violet-100 bg-violet-50/70 p-3'>
-              <div className='flex items-center gap-2 text-xs font-semibold text-violet-700'>
-                <Sparkles size={14} />
+              <p className='flex items-center gap-2 text-xs font-semibold text-violet-700'>
+                <Sparkles size={13} />
                 AI-assisted response
-              </div>
-
-              <p className='mt-2 text-xs leading-5 text-violet-700/80'>
+              </p>
+              {draftError && (
+                <div className='rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600'>
+                  {draftError}
+                </div>
+              )}
+              <p className='mt-2 text-[11px] leading-5 text-violet-700/80'>
                 Generate a contextual response using the customer's query and
                 your support knowledge base.
               </p>
             </div>
 
             {!draftGenerated && !draft ? (
-              <div className='flex min-h-[220px] flex-col items-center justify-center text-center'>
-                <div className='mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400'>
-                  <Bot size={23} />
-                </div>
-
-                <p className='text-sm font-medium text-slate-700'>
+              <div className='flex min-h-[180px] flex-col items-center justify-center text-center'>
+                <Bot size={25} className='text-slate-300' />
+                <p className='mt-3 text-xs font-medium text-slate-700'>
                   No response generated yet
                 </p>
-
-                <p className='mt-1 max-w-[230px] text-xs leading-5 text-slate-400'>
+                <p className='mt-1 max-w-[220px] text-[10px] leading-5 text-slate-400'>
                   Generate an AI draft to get a suggested response.
                 </p>
               </div>
@@ -234,56 +277,94 @@ function TicketConversation({ ticket, onBack }) {
                   <label className='text-xs font-semibold text-slate-700'>
                     Response draft
                   </label>
-
-                  <span className='flex items-center gap-1 text-[10px] text-emerald-600'>
-                    <CheckCircle2 size={12} />
+                  <span className='text-[10px] text-emerald-600'>
                     Generated
                   </span>
                 </div>
 
                 <textarea
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  rows={13}
+                  onChange={(event) => setDraft(event.target.value)}
+                  rows={12}
                   className='w-full resize-y rounded-lg border border-slate-200 p-3 text-xs leading-6 text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50'
                   placeholder='Your response draft...'
                 />
 
-                <p className='mt-2 flex items-center gap-1 text-[10px] text-slate-400'>
-                  <Pencil size={11} />
-                  You can edit this response before sending.
+                <p className='mt-2 text-[10px] text-slate-400'>
+                  Edit this response before sending.
                 </p>
               </div>
             )}
           </div>
 
-          <div className='space-y-2 border-t border-slate-100 p-5'>
+          <div className='space-y-2 border-t border-slate-100 p-4'>
             <button
               onClick={generateDraft}
-              disabled={generating}
-              className='flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:opacity-60'
+              disabled={generating || replySent}
+              className='flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-60'
             >
-              <Sparkles size={15} />
+              <Sparkles size={14} />
               {generating ? 'Generating...' : 'Generate AI Draft'}
             </button>
 
             <button
-              onClick={sendReply}
-              disabled={!draft.trim()}
-              className='flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40'
+              onClick={saveDraft}
+              disabled={!draft.trim() || !draftId || savingDraft || replySent}
+              className='flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40'
             >
-              <Send size={15} />
-              Send Reply
+              {savingDraft ? 'Saving...' : 'Save Draft'}
+            </button>
+
+            {saveSuccess && (
+              <p className='text-center text-xs text-emerald-600'>
+                {saveSuccess}
+              </p>
+            )}
+
+            {saveError && (
+              <p className='text-center text-xs text-red-500'>{saveError}</p>
+            )}
+
+            {sendError && (
+              <p className='text-center text-xs text-red-500'>{sendError}</p>
+            )}
+
+            {acceptError && (
+              <div className='space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3'>
+                <p className='text-xs text-amber-700'>{acceptError}</p>
+
+                <button
+                  onClick={retryAcceptDraft}
+                  disabled={sending}
+                  className='w-full rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50'
+                >
+                  Retry Draft Acceptance
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={sendReply}
+              disabled={!draft.trim() || !draftId || sending || replySent}
+              className='flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40'
+            >
+              <Send size={14} />
+              {sending
+                ? 'Processing...'
+                : replySent
+                  ? 'Reply Sent'
+                  : 'Send Reply'}
             </button>
 
             <p className='text-center text-[10px] text-slate-400'>
-              <Clock3 size={11} className='mr-1 inline' />
-              Agent review required before sending
+              {replySent
+                ? 'Reply has been delivered to the customer.'
+                : 'Your latest edits will be saved before sending.'}
             </p>
           </div>
-        </section>
+        </aside>
       </div>
-    </div>
+    </section>
   );
 }
 

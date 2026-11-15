@@ -11,7 +11,7 @@ function Topbar({ title }) {
       <div className='flex items-center gap-4'>
         <div className='flex h-9 w-[240px] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3'>
           <Search size={16} className='text-slates-400' />
-          <inut
+          <input
             type='text'
             placeholder='Search anything...'
             className='w-full bg-transparent text-xs outline-none placeholder:text-slate-400'

@@ -11,7 +11,8 @@ from customer_support_agent.api.dependencies import (
     get_customers_repository,
     get_draft_service,
     get_drafts_repository,
-    get_tickets_repository
+    get_tickets_repository,
+    get_messages_repository
 )
 
 from customer_support_agent.repositories.sqlite.customer import customersRepository
@@ -20,23 +21,26 @@ from customer_support_agent.repositories.sqlite.tickets import TicketsRepository
 from customer_support_agent.schemas.api import GenerateDraftResponse,TicketCreateRequest,TicketResponse
 from customer_support_agent.services.copilot_service import SupportCopilot
 from customer_support_agent.services.draft_service import DraftService
+from customer_support_agent.repositories.sqlite.messages import MessagesRepository
 
 logger=logging.getLogger(__name__)
 router=APIRouter()
 
 def generate_and_store_background(
-        ticket_id:int,
-        tickets_repo:TicketsRepository,
-        customers_repo:customersRepository,
-        drafts_repo:DraftsRepository,
-        draft_service:DraftService,
+    ticket_id: int,
+    tickets_repo: TicketsRepository,
+    customers_repo: customersRepository,
+    drafts_repo: DraftsRepository,
+    messages_repo: MessagesRepository,
+    draft_service: DraftService,
+) -> dict[str, Any] | None:
 
-)->dict[str,Any] | None:
     return draft_service.generate_and_store_background(
         ticket_id=ticket_id,
         tickets_repo=tickets_repo,
         customers_repo=customers_repo,
         drafts_repo=drafts_repo,
+        messages_repo=messages_repo,
         copilot_factory=get_copilot,
         logger=logger,
     )
@@ -48,7 +52,8 @@ def create_ticket_route(
     customers_repo:customersRepository=Depends(get_customers_repository),
     tickets_repo:TicketsRepository=Depends(get_tickets_repository),
     drafts_repo:DraftsRepository=Depends(get_drafts_repository),
-    drafts_service:DraftService=Depends(get_draft_service)
+    drafts_service:DraftService=Depends(get_draft_service),
+    messages_repo:MessagesRepository=Depends(get_messages_repository)
 )->dict[str,Any]:
     customer=customers_repo.create_or_get(
         email=str(payload.customer_email),
@@ -60,6 +65,12 @@ def create_ticket_route(
         subject=payload.subject,
         description=payload.description,
         priority=payload.priority,
+    )
+
+    messages_repo.create(
+        ticket_id=ticket["id"],
+        sender="customer",
+        content=payload.description,
     )
 
     merged={
@@ -76,6 +87,7 @@ def create_ticket_route(
             tickets_repo,
             customers_repo,
             drafts_repo,
+            messages_repo,
             drafts_service
         )
 
@@ -107,7 +119,8 @@ def generate_draft_route(
     customers_repo:customersRepository=Depends(get_customers_repository),
     drafts_repo:DraftsRepository=Depends(get_drafts_repository),
     draft_service:DraftService=Depends(get_draft_service),
-    copilot:SupportCopilot=Depends(get_copilot_or_503)
+    copilot:SupportCopilot=Depends(get_copilot_or_503),
+    messages_repo:MessagesRepository=Depends(get_messages_repository)
 )->dict[str,Any]:
     print("entering before the ticket...")
     ticket=tickets_repo.get_by_id(ticket_id)
@@ -116,6 +129,8 @@ def generate_draft_route(
     customer=customers_repo.get_by_id(ticket["customer_id"])
     if not customer:
         raise HTTPException(status_code=404,detail="Customer not found")
+
+    messages=messages_repo.list_by_ticket(ticket_id)
 
     try:
         logger.info(
@@ -126,6 +141,7 @@ def generate_draft_route(
             ticket_id=ticket_id,
             ticket=ticket,
             customer=customer,
+            messages=messages,
             drafts_repo=drafts_repo,
             copilot=copilot,
         )
